@@ -287,6 +287,7 @@ async function boot() {
     } else if (k === 'r') cast('ult');
     else if (k === 'b') issue({ type: 'recall' });
     else if (k === 'a') attackAction(game.world, me(), issue, (t) => hud.toast(t)); // touche A : même auto-cible que le bouton d'attaque
+    else if (['c', 'v', 'x'].includes(k)) attackAction(game.world, me(), issue, (t) => hud.toast(t), { c: 'farm', v: 'hero', x: 'structure' }[k]);
     else if (k === 'p') hud.toggleShop();
     else if (k === '1' || k === '2') {
       const pending = game.world.bonus && game.world.bonus.choices.some((c) => c.chooserId === PLAYER_ID && !c.lane);
@@ -297,6 +298,15 @@ async function boot() {
 
   window.addEventListener('keyup', (e) => {
     if (e.key === 'Tab' && game) hud.showScores(false);
+  });
+  document.querySelectorAll('[data-target-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!game || game.paused || game.ended || game.world.over || me().dead || ui.screen() !== 'game' || isPortraitBlocked()) return;
+      attackAction(game.world, me(), issue, (t) => hud.toast(t), button.dataset.targetMode);
+    });
+  });
+  $('#btn-stop').addEventListener('click', () => {
+    if (game && !game.paused && !game.ended && !game.world.over && !isPortraitBlocked()) issue({ type: 'stop' });
   });
   $('#btn-shop-open').addEventListener('click', () => game && hud.toggleShop());
   $('#btn-scores').addEventListener('click', () => game && hud.toggleScores());

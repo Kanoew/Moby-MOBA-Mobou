@@ -313,3 +313,18 @@ body.touch #help { display: none; }
   .slot-card { min-height: 40px; padding: 2px 6px; }
   .lobby-foot .btn { min-width: 150px; min-height: 42px; }
 }
+
+/* Accueil illustré et commandes de ciblage communes mobile / PC. */
+.home-emblems { display: flex; gap: 24px; }
+.home-emblems img { width: clamp(36px, 9vh, 72px); height: clamp(36px, 9vh, 72px); object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 6px 14px #000); }
+.brand h1 { text-shadow: 0 4px 30px #34d3e833; }
+#target-controls { position: absolute; left: max(12px, var(--safe-l)); top: calc(max(10px, var(--safe-t)) + 100px); z-index: 8; display: flex; flex-wrap: wrap; gap: 5px; max-width: 360px; }
+#target-controls .hud-btn { min-height: 44px; display: flex; align-items: center; gap: 5px; border-color: #ffd36b55; touch-action: manipulation; }
+#target-controls img { width: 22px; height: 22px; object-fit: contain; }
+kbd { opacity: .6; font: 11px monospace; }
+button:focus-visible { outline: 2px solid var(--ally); outline-offset: 3px; }
+@media (max-height: 500px) { .home-emblems { display: none; } #target-controls { max-width: 260px; top: 94px; } #target-controls .hud-btn { font-size: 11px; padding: 4px 8px; } }
+.touch kbd { display: none; }
+/* Laisser la mini-carte entièrement visible. */
+#target-controls { top: 76px; left: 290px; max-width: calc(100vw - 310px); }
+@media (max-width: 650px) { #target-controls { top: 165px; left: 12px; max-width: 260px; } }

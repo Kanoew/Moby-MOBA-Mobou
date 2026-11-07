@@ -52,6 +52,11 @@
         <h1>Moby <span>MOBA</span></h1>
         <p class="tagline">3 contre 3 · parties de 10 minutes maximum</p>
       </header>
+      <div class="home-emblems" aria-hidden="true">
+        <img src="assets/items/lame-courte.png" alt="">
+        <img src="assets/items/cuirasse.png" alt="">
+        <img src="assets/items/grimoire.png" alt="">
+      </div>
       <nav class="menu" aria-label="Menu principal">
         <button class="btn btn-primary btn-xl" id="btn-play" type="button">Jouer</button>
         <button class="btn btn-lg" id="btn-characters" type="button">Personnages</button>
@@ -133,6 +138,13 @@
       </div>
 
       <!-- Lot 4 : boutons de partie, inventaire, boutique, scores. Identifiants listés dans docs/ui-guide.md. -->
+      <div id="target-controls" role="group" aria-label="Ciblage des attaques">
+        <button class="hud-btn" data-target-mode="nearest" title="Cible proche (A)">Attaque <kbd>A</kbd></button>
+        <button class="hud-btn" data-target-mode="farm" title="Sbires et monstres uniquement (C)"><img src="assets/items/lame-courte.png" alt="">Farm <kbd>C</kbd></button>
+        <button class="hud-btn" data-target-mode="hero" title="Héros ennemis uniquement (V)">Héros <kbd>V</kbd></button>
+        <button class="hud-btn" data-target-mode="structure" title="Tours et noyau uniquement (X)">Structures <kbd>X</kbd></button>
+        <button class="hud-btn" id="btn-stop" title="Arrêter le déplacement et les attaques (S)">Stop <kbd>S</kbd></button>
+      </div>
       <div id="hud-buttons">
         <button id="btn-scores" class="hud-btn" type="button">Scores</button>
         <button id="btn-shop-open" class="hud-btn" type="button">Boutique</button>

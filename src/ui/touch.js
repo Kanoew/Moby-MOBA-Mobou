@@ -36,36 +36,26 @@ export function nearestEnemyInRange(world, hero) {
   return best;
 }
 
-/**
- * Bouton d'attaque (auto-cible) : garde le verrou en cours s'il est valide et pas trop loin ; sinon prend l'ennemi
- * le plus pertinent dans le rayon d'assistance, les héros d'abord, puis sbires et monstres, puis structures.
- * Contrairement à l'ancien comportement, il n'exige plus qu'une cible soit déjà à portée d'attaque.
+/** Ciblage par proximité. Les filtres explicites ne changent jamais de catégorie.
+ * Un verrou à portée reste stable ; une cible éloignée ne masque pas les mobs proches.
  */
-export function pickAttackTarget(world, hero, radius) {
-  const assist = world.match && world.match.attackAssist ? world.match.attackAssist : { radius: 700, maxChase: 900 };
-  const R = radius ?? assist.radius;
-  const cur = hero.targetId !== null ? world.byId.get(hero.targetId) : null;
-  if (cur && isTargetable(world, hero, cur) && Math.hypot(cur.x - hero.x, cur.y - hero.y) <= assist.maxChase) return cur;
-  const best = { hero: null, unit: null, structure: null };
-  const bestD = { hero: Infinity, unit: Infinity, structure: Infinity };
-  for (const u of world.units) {
-    if (!isTargetable(world, hero, u)) continue;
-    const d = edgeDistance(hero, u);
-    if (d > R) continue;
-    const k = u.kind === 'hero' ? 'hero' : u.kind === 'tower' || u.kind === 'core' ? 'structure' : 'unit';
-    if (d < bestD[k]) {
-      best[k] = u;
-      bestD[k] = d;
-    }
-  }
-  return best.hero || best.unit || best.structure;
+export function pickAttackTarget(world, hero, radius, mode = 'nearest') {
+  if (!hero || hero.dead) return null;
+  const R = radius ?? world.match?.attackAssist?.radius ?? 700;
+  const accepts = (u) => mode === 'farm' ? u.kind === 'minion' || u.kind === 'monster'
+    : mode === 'hero' ? u.kind === 'hero'
+    : mode === 'structure' ? u.kind === 'tower' || u.kind === 'core' : true;
+  const candidates = world.units.filter((u) => isTargetable(world, hero, u) && accepts(u) && edgeDistance(hero, u) <= R);
+  const current = candidates.find((u) => u.id === hero.targetId);
+  if (current && edgeDistance(hero, current) <= hero.def.auto.range) return current;
+  return candidates.reduce((best, u) => !best || edgeDistance(hero, u) < edgeDistance(hero, best) ? u : best, null);
 }
 
-/** Action du bouton d'attaque (et de la touche A) : ordre « attaquer » sur la meilleure cible, sinon message. */
-export function attackAction(world, hero, issue, notify) {
-  const t = pickAttackTarget(world, hero);
+/** Bouton et clavier partagent exactement le même ciblage. */
+export function attackAction(world, hero, issue, notify, mode = 'nearest') {
+  const t = pickAttackTarget(world, hero, undefined, mode);
   if (t) return issue({ type: 'attack', targetId: t.id });
-  if (notify) notify('Aucun ennemi proche');
+  if (notify) notify(mode === 'farm' ? 'Aucun sbire ou monstre proche' : mode === 'hero' ? 'Aucun héros ennemi proche' : mode === 'structure' ? 'Aucune structure attaquable proche' : 'Aucun ennemi proche');
   return false;
 }
 

@@ -153,7 +153,7 @@ test('attaque : la course est animée pendant la poursuite', () => {
   assert.equal(pickSprite({ ...hero, walking: false }, 0).kind, 'idle');
 });
 
-test('bouton d\'attaque : garde le verrou, préfère un héros à un sbire plus proche, rayon élargi, sinon rien', () => {
+test('bouton d\'attaque : préfère la proximité, respecte les filtres et stabilise le verrou à portée', () => {
   const w = duo();
   run(w, 5200);
   const a = getUnit(w, 'a');
@@ -166,7 +166,10 @@ test('bouton d\'attaque : garde le verrou, préfère un héros à un sbire plus 
   g.speed = 0;
   g.def = { ...g.def, ai: { aggro: 0, leash: 0 } };
   place(g, 1500 + 150, 900); // sbire bien plus proche
-  assert.equal(pickAttackTarget(w, a).id, 'b', 'le héros passe avant le sbire');
+  assert.equal(pickAttackTarget(w, a).id, g.id, 'le sbire proche passe avant le héros distant');
+  assert.equal(pickAttackTarget(w, a, undefined, 'hero').id, 'b');
+  assert.equal(pickAttackTarget(w, a, undefined, 'farm').id, g.id);
+  assert.equal(pickAttackTarget(w, a, undefined, 'structure'), null);
   b.invisible = true;
   assert.equal(pickAttackTarget(w, a).id, g.id, 'sans héros visible : le sbire');
   place(g, 1500 + 2000, 900);
@@ -175,7 +178,12 @@ test('bouton d\'attaque : garde le verrou, préfère un héros à un sbire plus 
   place(b, 1500 + 400, 900);
   issueCommand(w, 'a', { type: 'target', targetId: 'b' });
   place(g, 1500 + 100, 900);
-  assert.equal(pickAttackTarget(w, a).id, 'b', 'le verrou en cours est conservé');
+  assert.equal(pickAttackTarget(w, a).id, g.id, 'un verrou distant ne masque pas un sbire proche');
+  place(b, 1600, 900);
+  assert.equal(pickAttackTarget(w, a).id, 'b', 'le verrou à portée reste stable');
+  assert.equal(pickAttackTarget(w, a, undefined, 'farm').id, g.id, 'farm ignore même un héros verrouillé');
+  g.dead = true;
+  assert.equal(pickAttackTarget(w, a, undefined, 'farm'), null, 'farm ne bascule pas vers un héros');
 });
 
 test('bouton d\'attaque : action complète (cible, ordre, message si aucun ennemi)', () => {
