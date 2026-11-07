@@ -73,6 +73,7 @@ export function startCast(world, hero, slot, aim) {
 
   cancelSwing(world, hero, 'cast');
   hero.moveTarget = null;
+  hero.steer = null;
   hero.path = [];
   hero.cd[slot] = world.time + at(ab.cooldownMs, rank);
   hero.cast = { slot, ab, rank, t: 0, dir, start: { x: hero.x, y: hero.y }, distance, fired: false, hit: new Set(), stopped: false };

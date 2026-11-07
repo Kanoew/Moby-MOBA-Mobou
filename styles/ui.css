@@ -1,0 +1,176 @@
+/* ==========================================================================
+   Moby MOBA — interface.  Base propre et sobre ; les couleurs, tailles et polices sont des variables.
+   Pour habiller l'interface (images, fonds, boutons) : surcharger les variables ci-dessous et les blocs
+   marqués « HABILLAGE ». Voir docs/ui-guide.md.
+   ========================================================================== */
+
+:root {
+  --bg: #0b0e15;
+  --bg-2: #10151f;
+  --panel: rgba(16, 21, 31, 0.92);
+  --panel-line: rgba(255, 255, 255, 0.14);
+  --ink: #f4f1e8;
+  --ink-dim: rgba(244, 241, 232, 0.66);
+  --gold: #ffd36b;
+  --gold-ink: #231a05;
+  --ally: #34d3e8;
+  --enemy: #ff6f61;
+  --ok: #6fe0a0;
+  --radius: 12px;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --u: clamp(52px, 17vmin, 92px); /* taille de base des boutons d'action tactiles */
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); overflow: hidden; overscroll-behavior: none; }
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+button { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+#app { position: fixed; inset: 0; }
+
+/* ----- Écrans : un seul visible à la fois (data-screen sur #app) ----- */
+.screen { position: absolute; inset: 0; display: none; flex-direction: column; padding: max(14px, var(--safe-t)) max(18px, var(--safe-r)) max(14px, var(--safe-b)) max(18px, var(--safe-l)); }
+#app[data-screen='home'] #screen-home,
+#app[data-screen='characters'] #screen-characters,
+#app[data-screen='shop'] #screen-shop,
+#app[data-screen='game'] #screen-game { display: flex; }
+.screen.game { padding: 0; }
+
+/* ----- Boutons ----- */
+.btn {
+  appearance: none; border: 1px solid var(--panel-line); background: var(--panel); color: var(--ink);
+  border-radius: var(--radius); padding: 12px 22px; min-height: 46px; font-weight: 700; font-size: 17px; letter-spacing: 0.01em;
+  cursor: pointer; touch-action: manipulation; transition: transform 0.08s, background 0.15s, border-color 0.15s;
+}
+.btn:hover { border-color: var(--gold); }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; border-color: var(--panel-line); }
+.btn-primary { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+.btn-primary:hover { background: #ffe08f; }
+.btn-lg { min-height: 54px; font-size: 19px; }
+.btn-xl { min-height: 64px; font-size: 24px; }
+.btn-back { padding: 8px 14px; min-height: 40px; font-size: 15px; }
+.icon-btn { position: absolute; top: max(10px, var(--safe-t)); right: max(10px, var(--safe-r)); z-index: 8; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--panel-line); background: var(--panel); font-size: 14px; cursor: pointer; touch-action: manipulation; }
+
+.chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: var(--panel); border: 1px solid var(--panel-line); font-size: 14px; }
+.chip-label { color: var(--ink-dim); }
+.coin { display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 55%, #b98a1c); box-shadow: 0 0 0 2px rgba(255, 211, 107, 0.25); }
+.version { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+
+/* ----- Accueil ----- */
+#screen-home { align-items: center; justify-content: center; text-align: center; gap: clamp(10px, 3vh, 26px); }
+/* HABILLAGE : image de fond de l'accueil → .bg-art { background-image: url(...) } */
+.bg-art { position: absolute; inset: 0; z-index: -1; background:
+  radial-gradient(ellipse at 20% 15%, rgba(52, 211, 232, 0.16), transparent 55%),
+  radial-gradient(ellipse at 85% 85%, rgba(255, 111, 97, 0.14), transparent 55%),
+  linear-gradient(180deg, #0f1522, #0b0e15); background-size: cover; background-position: center; }
+.brand h1 { margin: 0; font-size: clamp(34px, 11vmin, 76px); line-height: 1; letter-spacing: 0.02em; }
+.brand h1 span { color: var(--gold); }
+.tagline { margin: 6px 0 0; color: var(--ink-dim); font-size: clamp(13px, 2.6vmin, 17px); }
+.menu { display: flex; flex-direction: column; gap: clamp(8px, 1.8vh, 14px); width: min(360px, 70vw); }
+.home-foot { position: absolute; left: max(18px, var(--safe-l)); right: max(18px, var(--safe-r)); bottom: max(12px, var(--safe-b)); display: flex; gap: 10px; justify-content: space-between; align-items: center; }
+@media (max-height: 420px) {
+  #screen-home { flex-direction: row; gap: 5vw; }
+  .menu { width: min(300px, 38vw); }
+}
+
+/* ----- Barres du haut, grilles, cartes ----- */
+.topbar { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; }
+.topbar h2 { margin: 0; flex: 1; font-size: clamp(20px, 4.5vmin, 30px); }
+.split { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; }
+.grid { overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-content: start; padding: 2px 2px 14px; -webkit-overflow-scrolling: touch; }
+.grid.shop { flex: 1; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+
+.card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px 12px; background: var(--panel); border: 2px solid var(--panel-line); border-radius: var(--radius); text-align: center; cursor: pointer; touch-action: manipulation; }
+.card:hover { border-color: var(--gold); }
+.card.selected { border-color: var(--ally); box-shadow: 0 0 0 2px rgba(52, 211, 232, 0.25); }
+.card.locked { cursor: default; }
+.card.soon { border-style: dashed; opacity: 0.6; cursor: default; }
+.card .name { font-weight: 800; font-size: 17px; }
+.card .role { color: var(--ink-dim); font-size: 13px; }
+.card .tag { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: 999px; background: var(--ally); color: #04222a; font-size: 11px; font-weight: 800; }
+.card .tag.owned { background: var(--ok); color: #05260f; }
+.card .price { display: inline-flex; gap: 6px; align-items: center; font-weight: 800; }
+
+/* HABILLAGE : portrait = première image de repos de la planche du compagnon (192×208 réduit de moitié).
+   Pour une illustration : définir `portrait` dans data/roster.json (chemin d'image), il remplace la planche. */
+.portrait { width: 96px; height: 104px; background-repeat: no-repeat; background-size: 768px 1144px; background-position: 0 0; image-rendering: auto; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5)); }
+.portrait.art { background-size: contain; background-position: center; width: 120px; height: 130px; }
+.portrait.big { transform-origin: top center; transform: scale(1.5); margin: 0 0 56px; }
+.portrait.locked-art { filter: grayscale(1) brightness(0.45) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5)); }
+.card.soon .portrait { background: none; display: grid; place-items: center; font-size: 46px; color: var(--ink-dim); filter: none; }
+
+.detail { overflow-y: auto; background: var(--panel); border: 1px solid var(--panel-line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.detail h3 { margin: 0; font-size: 24px; }
+.detail .blurb { color: var(--ink-dim); font-size: 14px; margin: 0; }
+.stats { width: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.stat { background: var(--bg-2); border-radius: 8px; padding: 6px 2px; font-size: 12px; color: var(--ink-dim); }
+.stat b { display: block; color: var(--ink); font-size: 16px; }
+.abilities { width: 100%; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.ability { background: var(--bg-2); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+.ability small { display: block; color: var(--ink-dim); }
+.note { margin: 6px 0 0; color: var(--ink-dim); font-size: 13px; text-align: center; }
+.toast { position: fixed; left: 50%; bottom: max(20px, var(--safe-b)); transform: translateX(-50%); background: var(--panel); border: 1px solid var(--gold); border-radius: 999px; padding: 10px 18px; font-weight: 700; z-index: 30; }
+
+/* ----- Superpositions ----- */
+.overlay { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(5, 7, 12, 0.72); }
+.dialog { min-width: min(340px, 80vw); display: flex; flex-direction: column; gap: 10px; align-items: stretch; text-align: center; background: var(--panel); border: 1px solid var(--panel-line); border-radius: 16px; padding: 18px 22px; }
+.dialog h2 { margin: 0 0 4px; font-size: 28px; }
+.dialog p { margin: 0; color: var(--ink-dim); }
+.reward { color: var(--gold) !important; font-weight: 800; font-size: 18px; }
+#endcard #end-title.win { color: var(--ok); }
+#endcard #end-title.loss { color: var(--enemy); }
+
+/* Verrouillage paysage : toujours visible en portrait sur appareil tactile, même si le script n'a pas démarré. */
+.rotate { position: fixed; z-index: 100; background: var(--bg); }
+@media (orientation: portrait) and (pointer: coarse) { .rotate, .rotate[hidden] { display: flex !important; } }
+.phone { align-self: center; width: 54px; height: 92px; border: 4px solid var(--gold); border-radius: 12px; animation: turn 2.4s ease-in-out infinite; }
+@keyframes turn { 0%, 25% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+
+/* ----- Partie : canvas plein écran ----- */
+/* Absolu : un canvas flexible dont la taille CSS dépend de son contenu grossit sans fin quand devicePixelRatio > 1. */
+#game { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+#status { position: absolute; left: 50%; top: 70px; transform: translateX(-50%); padding: 8px 18px; border-radius: 8px; background: rgba(12, 16, 26, 0.88); border: 1px solid var(--gold); font-weight: 600; z-index: 9; }
+#help { position: absolute; right: max(12px, var(--safe-r)); bottom: 6px; font-size: 12px; opacity: 0.6; max-width: 46vw; text-align: right; pointer-events: none; }
+body.touch #help { display: none; }
+
+/* ----- Commandes tactiles ----- */
+#touch { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+#stick-zone { position: absolute; left: 0; bottom: 0; width: 46%; height: 78%; pointer-events: auto; touch-action: none; }
+/* HABILLAGE : joystick flottant — il apparaît sous le pouce, il n'a pas de position fixe. */
+#stick-base { position: absolute; width: calc(var(--u) * 1.7); height: calc(var(--u) * 1.7); margin: calc(var(--u) * -0.85) 0 0 calc(var(--u) * -0.85); border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.35); background: radial-gradient(circle, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)); opacity: 0; transition: opacity 0.12s; pointer-events: none; }
+#stick-base.on { opacity: 1; }
+#stick-knob { position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 0.8); height: calc(var(--u) * 0.8); border-radius: 50%; background: rgba(255, 255, 255, 0.28); border: 2px solid rgba(255, 255, 255, 0.7); transform: translate(-50%, -50%); }
+
+#action-pad { position: absolute; right: max(14px, var(--safe-r)); bottom: max(12px, var(--safe-b)); width: calc(var(--u) * 3.6); height: calc(var(--u) * 2.9); pointer-events: none; }
+.act { position: absolute; pointer-events: auto; touch-action: none; appearance: none; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 3px solid rgba(255, 255, 255, 0.35); background: rgba(16, 21, 31, 0.78); color: var(--ink); overflow: hidden; font-weight: 800; line-height: 1.1; text-align: center; }
+.act .name { font-size: calc(var(--u) * 0.16); padding: 0 6px; max-width: 92%; }
+.act .key { position: absolute; top: 5%; left: 50%; transform: translateX(-50%); font-size: calc(var(--u) * 0.16); color: var(--gold); }
+.act .cd-num { position: absolute; font-size: calc(var(--u) * 0.42); font-weight: 900; text-shadow: 0 2px 4px #000; }
+.act .lock-note { position: absolute; bottom: 14%; font-size: calc(var(--u) * 0.15); color: var(--ink-dim); }
+.act::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(5, 7, 12, 0.74) calc(var(--cd, 0) * 100%), transparent 0); pointer-events: none; }
+.act.ready { border-color: var(--gold); box-shadow: 0 0 14px rgba(255, 211, 107, 0.45); }
+.act.locked { opacity: 0.45; }
+.act.aiming { border-color: var(--ally); transform: scale(1.08); }
+.act.pulse { transform: scale(0.92); }
+.pips { position: absolute; bottom: 8%; display: flex; gap: 3px; }
+.pips i { width: calc(var(--u) * 0.14); height: calc(var(--u) * 0.05); background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
+.act[data-rank='1'] .pips i:nth-child(-n + 1), .act[data-rank='2'] .pips i:nth-child(-n + 2), .act[data-rank='3'] .pips i:nth-child(-n + 3) { background: var(--gold); }
+.act-attack { right: 0; bottom: 0; width: calc(var(--u) * 1.3); height: calc(var(--u) * 1.3); border-color: rgba(255, 111, 97, 0.7); }
+.act-skill { right: calc(var(--u) * 1.45); bottom: calc(var(--u) * 0.12); width: var(--u); height: var(--u); }
+.act-ult { right: calc(var(--u) * 0.72); bottom: calc(var(--u) * 1.5); width: calc(var(--u) * 0.95); height: calc(var(--u) * 0.95); }
+.plus { position: absolute; display: none; width: calc(var(--u) * 0.5); height: calc(var(--u) * 0.5); min-width: 38px; min-height: 38px; border-radius: 50%; border: 2px solid var(--gold-ink); background: var(--gold); color: var(--gold-ink); font-size: 24px; font-weight: 900; line-height: 1; pointer-events: auto; touch-action: none; z-index: 2; }
+.plus.show { display: block; animation: bob 0.9s ease-in-out infinite; }
+.plus-attack { right: calc(var(--u) * -0.12); bottom: calc(var(--u) * 1.1); }
+.plus-skill { right: calc(var(--u) * 1.15); bottom: calc(var(--u) * 0.95); }
+@keyframes bob { 50% { transform: translateY(-3px); } }
+
+/* Écran étroit en paysage (petit téléphone) */
+@media (max-height: 380px) { .menu { gap: 8px; } .btn-xl { min-height: 52px; font-size: 21px; } .split { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) { .split { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); } #char-detail { max-height: 46vh; } }

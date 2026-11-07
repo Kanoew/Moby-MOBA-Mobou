@@ -69,6 +69,7 @@ export function newUnit(world, { id, kind, team, def, x, y, radius }) {
     facing: { x: team === TEAM_ALLY ? 1 : -1, y: 0 },
     targetId: null,
     moveTarget: null,
+    steer: null,
     path: [],
     swing: null,
     nextAttackAt: 0,
@@ -238,12 +239,25 @@ export function cancelSwing(world, u, reason) {
 export function issueCommand(world, heroId, cmd) {
   const hero = getUnit(world, heroId);
   if (!hero || hero.kind !== 'hero' || hero.dead || world.over) return false;
-  if (hero.cast && cmd.type === 'move') return false; // un lancer en cours ne s'interrompt pas
+  if (hero.cast && (cmd.type === 'move' || cmd.type === 'steer')) return false; // un lancer en cours ne s'interrompt pas
 
   switch (cmd.type) {
     case 'skill':
     case 'ult':
       return startCast(world, hero, cmd.type, cmd.x !== undefined ? { x: cmd.x, y: cmd.y } : null);
+    case 'steer': {
+      // Joystick : direction continue (vecteur), sans destination. Relâcher = vecteur nul.
+      const len = Math.hypot(cmd.x || 0, cmd.y || 0);
+      if (len < 0.001) {
+        hero.steer = null;
+        return true;
+      }
+      hero.steer = { x: cmd.x / len, y: cmd.y / len };
+      hero.moveTarget = null;
+      hero.path = [];
+      cancelSwing(world, hero, 'move');
+      return true;
+    }
     case 'level_up':
       return spendPoint(world, heroId, cmd.slot);
     case 'choose_bonus_lane':
@@ -253,12 +267,14 @@ export function issueCommand(world, heroId, cmd) {
       const y = Math.min(world.map.height - hero.radius, Math.max(hero.radius, cmd.y));
       hero.path = findPath(world.map, hero.radius, { x: hero.x, y: hero.y }, { x, y });
       hero.moveTarget = { ...hero.path[hero.path.length - 1] };
+      hero.steer = null;
       hero.stuckMs = 0;
       cancelSwing(world, hero, 'move');
       return true;
     }
     case 'stop':
       hero.moveTarget = null;
+      hero.steer = null;
       hero.path = [];
       return true;
     case 'target': {
@@ -352,7 +368,11 @@ function updateHero(world, hero, dtMs) {
     return;
   }
 
-  // Le déplacement suspend les autos. Le héros ne poursuit jamais la cible.
+  // Le déplacement (clic ou joystick) suspend les autos. Le héros ne poursuit jamais la cible.
+  if (hero.steer) {
+    steerHero(world, hero, dtMs);
+    return;
+  }
   if (hero.moveTarget) {
     moveHero(world, hero, dtMs);
     return;
@@ -505,6 +525,7 @@ function kill(world, source, target) {
   target.dead = true;
   target.swing = null;
   target.moveTarget = null;
+  target.steer = null;
   target.path = [];
   target.targetId = null;
   target.shield = null;
@@ -726,6 +747,14 @@ function updateBases(world, dtMs) {
 /* ------------------------------------------------------------------ */
 /* Déplacement et collisions                                            */
 /* ------------------------------------------------------------------ */
+
+function steerHero(world, hero, dtMs) {
+  const s = effectiveSpeed(world, hero) * dtMs / 1000;
+  hero.x += hero.steer.x * s;
+  hero.y += hero.steer.y * s;
+  face(hero, hero.x + hero.steer.x, hero.y + hero.steer.y);
+  pushOutOfObstacles(world, hero);
+}
 
 function moveHero(world, hero, dtMs) {
   const wp = hero.path.length ? hero.path[0] : hero.moveTarget;

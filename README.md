@@ -15,7 +15,15 @@ npm test             # tests de la simulation (node --test)
 
 Options d'URL : `?hero=yeji|sweetie|jennie` (héros du joueur) · `?mode=duel` (salle d'entraînement du lot 1, Yeji contre Jennie) · `?bot=off` (adversaires inertes) · `?speed=N` (match accéléré, jusqu'à ×20) · `?seed=N` (tempérament des bots) · `?debug=1` (portées, distances, états) · `?level=N` (donne l'XP du niveau N au joueur, pour tester) · `?spend=1` (avec `level`, dépense aussitôt les points).
 
-Commandes : clic sol = se déplacer · clic ennemi, sbire, monstre ou tour (ou appui) = verrouiller · `Q` = viser la compétence (clic ou `Q` pour lancer, `Échap` ou clic droit annule) · `R` = ultime · `1` / `2` = +auto / +skill (ou choix de ligne quand l'invite du boss est ouverte) · boutons « + » de la barre de capacités · `S` = stop · `D` = debug · `N` = rejouer.
+Commandes au clavier-souris : clic sol = se déplacer · clic ennemi, sbire, monstre ou tour (ou appui) = verrouiller · `Q` = viser la compétence (clic ou `Q` pour lancer, `Échap` ou clic droit annule) · `R` = ultime · `1` / `2` = +auto / +skill (ou choix de ligne quand l'invite du boss est ouverte) · boutons « + » de la barre de capacités · `S` = stop · `D` = debug · `N` = rejouer · `Échap` = pause.
+
+## Interface, mobile et version
+
+- **Accueil** avec Jouer, Personnages et Boutique. **Personnages** : fiche (stats, compétences, recharges) et choix du héros. **Boutique** : achat de personnages avec des Éclats gagnés en partie (victoire 150, égalité 80, défaite 50) ; personnage de départ : Yeji ; Sweetie et Jennie coûtent 300. Le profil est enregistré dans le navigateur (`localStorage`). Aucun paiement réel.
+- **Mobile, paysage uniquement** : en portrait, un écran « Tournez votre appareil » couvre le jeu et met la partie en pause ; le jeu tente aussi de verrouiller l'orientation (plein écran, `screen.orientation.lock`, manifeste `landscape`).
+- **Commandes tactiles** : joystick flottant à gauche (il apparaît sous le pouce), boutons Attaque, Compétence, Ultime à droite, boutons « + » pour les points. Appui sur Attaque : verrouille l'ennemi le plus proche à portée. Compétence : appui = visée automatique, glissé = viser puis relâcher pour lancer. Le sol ne déplace pas sur écran tactile. `?touch=1` les affiche sur ordinateur.
+- **Version** : numéro unique dans `version.json`, appliqué à tous les fichiers chargés (`?v=…`) par une carte d'import générée. `npm run bump` avant chaque publication (`-- minor`, `-- major`, `-- sync`). Le jeu se recharge de lui-même si le serveur annonce une version plus récente. Détails dans `docs/ui-guide.md`.
+- **Habillage** : `docs/ui-guide.md` liste ce qui est fait, ce qui reste (images, HUD du canvas) et les identifiants à conserver.
 
 ## Architecture
 
@@ -23,7 +31,9 @@ Commandes : clic sol = se déplacer · clic ennemi, sbire, monstre ou tour (ou a
 | --- | --- |
 | `src/sim/` | Simulation pure (aucun DOM, aucune horloge réelle). `world.js` : commandes, héros, sbires, tours, noyaux, vagues, mort/réapparition, dégâts, collisions. `abilities.js` : lancers, dash, projectiles en éventail, zones, ralentissement, bouclier. `progression.js` : XP, niveaux, rangs. `jungle.js` : camps, boss, récompense. `path.js` : A* + lissage. `bot.js` : IA, n'utilise que `issueCommand`. Prête à tourner côté serveur au lot 5. |
 | `src/render/` | Rendu canvas. `animator.js` (choix d'image, pur et testé), `renderer.js` (lit l'état, ne le modifie pas). |
-| `src/input/` | Souris/tactile → commandes. |
+| `src/input/` | Souris → commandes (`pointer.js`). |
+| `src/ui/` | Accueil, personnages, boutique (`screens.js`), profil local (`profile.js`), commandes tactiles (`touch.js`). |
+| `styles/`, `manifest.webmanifest`, `version.json`, `tools/bump-version.mjs` | Feuille de style, manifeste paysage, version et outil de version. |
 | `data/` | `heroes.json` (stats, auto, compétences et ultimes par rang, durées d'images, planches, effets), `match.json` (vagues, sbires, monstres, boss, tours, noyau, progression, camps, tableau de réapparition, zone de départ), `map-3v3.json` (lignes, tours, noyaux, obstacles), `arena.json` (duel). Tout l'équilibrage est ici. |
 | `assets/` | Planches copiées des packs fournis (compagnons, attaques, dash et ultime de Yeji avec ses effets d'orbite, ruée et bouclier de Sweetie, triple bouquet et couronne de ronces de Jennie). Planches des monstres (gnome, troll, fleur, dragon, cerbère et ses flammes). Tours et noyaux sont encore dessinés par le code. |
 
@@ -120,7 +130,7 @@ En jeu, avec `?level=3&spend=1&bot=off` pour avoir skill et ultime tout de suite
 5. Mourir : compte à rebours au centre de l'écran, réapparition dans la base en PV pleins, compteur de morts incrémenté.
 6. Détruire deux tours d'une même ligne puis le noyau : écran Victoire.
 
-En automatique : `npm test` (81 tests, lots 1 à 3) couvre le tableau de réapparition, la sortie à 0:05, les vagues à 0:30, l'invulnérabilité en cascade, la fin de partie, la priorité des tours, l'assistance, le soin en base et les bots (destruction du noyau d'un héros inactif, repli puis retour en lane). Le lot 3 est couvert par `tests/lot3.test.js` (niveaux et rangs, partage d'XP, dash qui traverse ou qui s'arrête, éventail, bouclier et son expiration à 4 220 ms, zones et ralentissements, camps, laisse, boss à 3:15 / 3:30 / 7:40, duo contre le boss, vague renforcée et choix par défaut) et `tests/animator.test.js` (images, directions, échelles). `tests/balance.test.js` couvre les recharges, l'XP du temps et des kills, la limite de 10 minutes, les camps symétriques, le souffle du Cerbère et la synchronisation données ↔ animations (impact à la 4e image, durées, fichiers présents).
+En automatique : `npm test` (101 tests) couvre le tableau de réapparition, la sortie à 0:05, les vagues à 0:30, l'invulnérabilité en cascade, la fin de partie, la priorité des tours, l'assistance, le soin en base et les bots (destruction du noyau d'un héros inactif, repli puis retour en lane). Le lot 3 est couvert par `tests/lot3.test.js` (niveaux et rangs, partage d'XP, dash qui traverse ou qui s'arrête, éventail, bouclier et son expiration à 4 220 ms, zones et ralentissements, camps, laisse, boss à 3:15 / 3:30 / 7:40, duo contre le boss, vague renforcée et choix par défaut) et `tests/animator.test.js` (images, directions, échelles). `tests/ui.test.js` couvre la boutique et le profil, la cohérence des versions et de la carte d'import, le joystick, les boutons d'action et la commande `steer`. `tests/balance.test.js` couvre les recharges, l'XP du temps et des kills, la limite de 10 minutes, les camps symétriques, le souffle du Cerbère et la synchronisation données ↔ animations (impact à la 4e image, durées, fichiers présents).
 
 ## Hors périmètre
 

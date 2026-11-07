@@ -1,11 +1,12 @@
 {
   "name": "moba-3v3",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "MOBA 3v3 — lot 1 : terrain et combat (Yeji au katana vs Jennie)",
   "scripts": {
     "start": "node tools/serve.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "bump": "node tools/bump-version.mjs"
   }
 }

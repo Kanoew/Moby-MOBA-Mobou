@@ -31,7 +31,7 @@ export function loadImages(paths) {
             resolve();
           };
           img.onerror = () => reject(new Error(`image introuvable : ${src}`));
-          img.src = src;
+          img.src = window.APP_VERSION ? `${src}?v=${window.APP_VERSION}` : src; // numéro de version : force le rafraîchissement du cache
         }),
     ),
   ).then(() => out);
@@ -61,7 +61,7 @@ const fmtClock = (ms) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-export function createRenderer(canvas, world, images) {
+export function createRenderer(canvas, world, images, opts = {}) {
   const ctx = canvas.getContext('2d');
   const clocks = new Map(); // unité → { state, since }
   const floaters = [];
@@ -773,6 +773,7 @@ export function createRenderer(canvas, world, images) {
   }
 
   function drawAbilityBar(local, u) {
+    if (opts.touch) return; // sur mobile, les boutons d'action sont en HTML (voir src/ui/touch.js)
     if (!local || !world.match || !local.def.abilities) return;
     const ab = local.def.abilities;
     const levels = world.match.progression.levels;
@@ -966,7 +967,7 @@ export function createRenderer(canvas, world, images) {
         `${h.def.name}${h.id === localId ? ' (vous)' : ''}${h.team === 'enemy' ? ' ▲' : ''} · hp ${Math.ceil(h.hp)}${h.dead ? ' †' : ''}` +
           ` · cible ${t ? t.def.name : '—'}` +
           (t ? ` · bord-à-bord ${Math.round(edgeDistance(h, t))} / portée ${h.def.auto.range}` : '') +
-          ` · ${h.dead ? 'mort' : h.moveTarget ? 'déplacement' : h.swing ? 'attaque ' + Math.round(h.swing.t) + ' ms' : 'immobile'}`,
+          ` · ${h.dead ? 'mort' : h.moveTarget || h.steer ? 'déplacement' : h.swing ? 'attaque ' + Math.round(h.swing.t) + ' ms' : 'immobile'}`,
       );
     }
     ctx.save();

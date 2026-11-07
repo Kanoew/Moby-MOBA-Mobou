@@ -1,0 +1,13 @@
+{
+  "currency": { "name": "Éclats", "start": 700 },
+  "rewards": { "win": 150, "draw": 80, "loss": 50 },
+  "characters": [
+    { "id": "yeji", "price": 0, "starter": true, "portrait": null,
+      "blurb": "Duelliste rapide au katana. Elle traverse les lignes ennemies et ralentit toute une zone." },
+    { "id": "sweetie", "price": 300, "portrait": null,
+      "blurb": "Bruiser à l'épée gothique. Elle fonce sur sa cible et se protège d'un bouclier." },
+    { "id": "jennie", "price": 300, "portrait": null,
+      "blurb": "Mariée gothique à distance. Éventail de bouquets et couronne de ronces." }
+  ],
+  "comingSoon": 2
+}

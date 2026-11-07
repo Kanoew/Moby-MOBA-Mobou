@@ -4,150 +4,296 @@ import { canCast } from './sim/abilities.js';
 import { gainXp } from './sim/progression.js';
 import { collectImagePaths, createRenderer, loadImages } from './render/renderer.js';
 import { bindPointer, commandForPoint } from './input/pointer.js';
+import { loadProfile, resetProfile, rewardMatch, saveProfile } from './ui/profile.js';
+import { createUi } from './ui/screens.js';
+import { bindTouchControls, updateTouchHud } from './ui/touch.js';
 
 const STEP_MS = 16;
 const PLAYER_ID = 'player';
 const LANE_OF = { yeji: 'top', sweetie: 'bottom', jennie: null }; // Jennie alterne entre lignes, jungle et boss
+const VERSION = window.APP_VERSION || 'dev';
+
+// Paramètres d'URL (tests et réglages) :
+//  ?hero=yeji|sweetie|jennie · ?mode=duel · ?bot=off · ?debug=1 · ?speed=N · ?seed=N · ?level=N · ?spend=1
+//  ?touch=1 (force les commandes tactiles sur ordinateur) · ?reset=1 (efface le profil) · ?unlock=1 (tous les personnages)
+//  Si hero ou mode est présent, la partie démarre directement (sans accueil).
+const params = new URLSearchParams(location.search);
+const touchMode = params.get('touch') === '1' || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
+document.body.classList.toggle('touch', touchMode);
+
+/** Si une version plus récente est publiée, recharge une fois la page (l'index en cache est alors périmé). */
+async function checkVersion() {
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const { version } = await r.json();
+    if (version !== VERSION && sessionStorage.getItem('moba.reloaded') !== version) {
+      sessionStorage.setItem('moba.reloaded', version);
+      const u = new URL(location.href);
+      u.searchParams.set('v', version);
+      location.replace(u);
+    }
+  } catch {
+    /* hors ligne : on garde la version chargée */
+  }
+}
+
+const getJson = (p) => fetch(`${p}?v=${VERSION}`, { cache: 'no-cache' }).then((r) => r.json());
 
 async function boot() {
-  const [arena, map3v3, matchCfg, heroDefs] = await Promise.all(
-    ['data/arena.json', 'data/map-3v3.json', 'data/match.json', 'data/heroes.json'].map((p) => fetch(p).then((r) => r.json())),
+  checkVersion();
+  const [arena, map3v3, matchCfg, heroDefs, roster] = await Promise.all(
+    ['data/arena.json', 'data/map-3v3.json', 'data/match.json', 'data/heroes.json', 'data/roster.json'].map(getJson),
   );
   const images = await loadImages(collectImagePaths(heroDefs, matchCfg));
 
-  // ?mode=duel : salle d'entraînement du lot 1 (Yeji vs Jennie, sans compétences).
-  // ?hero=yeji|sweetie|jennie · ?bot=off (adversaires inertes) · ?debug=1 · ?speed=N · ?seed=N
-  // ?level=N (XP pour atteindre le niveau N, pour tester) · ?spend=1 (dépense aussitôt tous les points)
-  const params = new URLSearchParams(location.search);
+  if (params.get('reset') === '1') resetProfile(localStorage);
+  const profile = loadProfile(localStorage, roster);
+  if (params.get('unlock') === '1') {
+    profile.owned = roster.characters.map((c) => c.id);
+    saveProfile(localStorage, profile);
+  }
+
+  const $ = (s) => document.querySelector(s);
+  const canvas = $('#game');
+  const status = $('#status');
+  const app = $('#app');
+  const helpEl = $('#help');
+  helpEl.textContent = 'Clic : déplacer / verrouiller · Q : visée de la compétence (clic ou Q pour lancer, Échap annule) · R : ultime · 1 / 2 : +auto / +skill · S : stop · D : debug · N : rejouer · Échap : pause';
+
+  const touchEls = {
+    root: $('#touch'),
+    zone: $('#stick-zone'),
+    base: $('#stick-base'),
+    knob: $('#stick-knob'),
+    attack: $('#btn-attack'),
+    skill: $('#btn-skill'),
+    ult: $('#btn-ult'),
+    plusAttack: $('#plus-attack'),
+    plusSkill: $('#plus-skill'),
+  };
+  touchEls.root.hidden = !touchMode;
+
   const duel = params.get('mode') === 'duel';
-  const playerHero = heroDefs[params.get('hero')] ? params.get('hero') : 'yeji';
   const speed = Math.max(1, Math.min(20, Number(params.get('speed')) || 1));
   const seed = Number(params.get('seed')) || 1;
   const botsOn = params.get('bot') !== 'off';
+  let debugOn = params.get('debug') === '1';
 
-  const canvas = document.getElementById('game');
-  const status = document.getElementById('status');
-  let world;
-  let renderer;
-  let aim = null; // { slot } pendant la visée d'une compétence
+  let game = null; // { world, renderer, hero, aim, paused, ended }
   let pointer = { x: 0, y: 0 };
+  const me = () => (game ? getUnit(game.world, PLAYER_ID) : null);
+  const issue = (cmd) => (game ? issueCommand(game.world, PLAYER_ID, cmd) : false);
 
-  function roster() {
+  function makeRoster(hero) {
     if (duel) {
-      const botHero = playerHero === 'yeji' ? 'jennie' : 'yeji';
+      const botHero = hero === 'yeji' ? 'jennie' : 'yeji';
       return [
-        { id: PLAYER_ID, hero: playerHero, team: TEAM_ALLY, controller: 'player' },
+        { id: PLAYER_ID, hero, team: TEAM_ALLY, controller: 'player' },
         { id: 'bot', hero: botHero, team: TEAM_ENEMY, controller: botsOn ? 'bot' : 'idle' },
       ];
     }
     // Match 3v3 : le joueur + deux bots contre trois bots, mêmes compagnons des deux côtés.
-    const out = [{ id: PLAYER_ID, hero: playerHero, team: TEAM_ALLY, controller: 'player', lane: LANE_OF[playerHero] }];
-    for (const h of Object.keys(LANE_OF)) if (h !== playerHero) out.push({ id: `a-${h}`, hero: h, team: TEAM_ALLY, controller: 'bot', lane: LANE_OF[h] });
+    const out = [{ id: PLAYER_ID, hero, team: TEAM_ALLY, controller: 'player', lane: LANE_OF[hero] }];
+    for (const h of Object.keys(LANE_OF)) if (h !== hero) out.push({ id: `a-${h}`, hero: h, team: TEAM_ALLY, controller: 'bot', lane: LANE_OF[h] });
     for (const h of Object.keys(LANE_OF)) out.push({ id: `e-${h}`, hero: h, team: TEAM_ENEMY, controller: botsOn ? 'bot' : 'idle', lane: LANE_OF[h] });
     return out;
   }
 
-  function newMatch() {
-    world = createWorld({ map: duel ? arena : map3v3, heroDefs, match: duel ? null : matchCfg, roster: roster(), seed });
-    const wasDebug = renderer ? renderer.isDebug() : params.get('debug') === '1';
-    renderer = createRenderer(canvas, world, images);
-    renderer.setDebug(wasDebug);
-    aim = null;
-    status.hidden = true;
+  function startGame(hero) {
+    const world = createWorld({ map: duel ? arena : map3v3, heroDefs, match: duel ? null : matchCfg, roster: makeRoster(hero), seed });
+    const renderer = createRenderer(canvas, world, images, { touch: touchMode });
+    renderer.setDebug(game ? game.renderer.isDebug() : debugOn);
+    game = { world, renderer, hero, aim: null, paused: false, ended: false };
     const lvl = Number(params.get('level'));
     if (!duel && lvl >= 2) {
-      const me = getUnit(world, PLAYER_ID);
-      gainXp(world, me, matchCfg.progression.levels[Math.min(lvl, 9) - 1]);
-      if (params.get('spend') === '1') while (me.points > 0 && (issueCommand(world, PLAYER_ID, { type: 'level_up', slot: 'skill' }) || issueCommand(world, PLAYER_ID, { type: 'level_up', slot: 'auto' })));
+      const p = getUnit(world, PLAYER_ID);
+      gainXp(world, p, matchCfg.progression.levels[Math.min(lvl, 9) - 1]);
+      if (params.get('spend') === '1') while (p.points > 0 && (issueCommand(world, PLAYER_ID, { type: 'level_up', slot: 'skill' }) || issueCommand(world, PLAYER_ID, { type: 'level_up', slot: 'auto' })));
     }
-    window.__moba = { world, renderer, issueCommand, step, getUnit, PLAYER_ID, setAim: (a) => (aim = a) };
+    status.hidden = true;
+    $('#pause').hidden = true;
+    $('#endcard').hidden = true;
+    ui.go('game');
+    window.__moba = { world, renderer, issueCommand, step, getUnit, PLAYER_ID, setAim: (a) => (game.aim = a), startGame, game: () => game };
+    if (touchMode) lockLandscape();
+    applyOrientation();
   }
-  newMatch();
 
-  const me = () => getUnit(world, PLAYER_ID);
-  const cast = (slot, p) => issueCommand(world, PLAYER_ID, { type: slot, x: p ? p.x : undefined, y: p ? p.y : undefined });
+  function quitToMenu() {
+    if (game) issue({ type: 'steer', x: 0, y: 0 });
+    game = null;
+    ui.go('home');
+  }
 
+  /* ----- Paysage forcé sur mobile : pas de portrait ----- */
+  async function lockLandscape() {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    } catch {
+      /* refusé : l'overlay de rotation prend le relais */
+    }
+    try {
+      if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+    } catch {
+      /* iOS Safari ne sait pas verrouiller : même repli */
+    }
+  }
+  const rotateEl = $('#rotate');
+  const isPortraitBlocked = () => touchMode && window.innerHeight > window.innerWidth;
+  function applyOrientation() {
+    const blocked = isPortraitBlocked();
+    rotateEl.hidden = !blocked;
+    if (blocked && game) issue({ type: 'steer', x: 0, y: 0 });
+  }
+  window.addEventListener('resize', applyOrientation);
+  window.addEventListener('orientationchange', applyOrientation);
+
+  /* ----- Interface ----- */
+  const ui = createUi({ roster, heroDefs, profile, storage: localStorage, onPlay: (hero) => startGame(hero), version: VERSION });
+
+  $('#btn-pause').addEventListener('click', () => setPaused(true));
+  $('#btn-resume').addEventListener('click', () => setPaused(false));
+  $('#btn-quit').addEventListener('click', () => {
+    setPaused(false);
+    quitToMenu();
+  });
+  $('#btn-again').addEventListener('click', () => startGame(game ? game.hero : profile.selected));
+  $('#btn-menu').addEventListener('click', quitToMenu);
+  function setPaused(p) {
+    if (!game || game.ended) return;
+    game.paused = p;
+    $('#pause').hidden = !p;
+    if (p) issue({ type: 'steer', x: 0, y: 0 });
+  }
+
+  /* ----- Commandes tactiles ----- */
+  bindTouchControls(touchEls, {
+    world: () => game.world,
+    hero: me,
+    issue,
+    setAim: (a) => game && (game.aim = a),
+    enabled: () => !!game && !game.paused && !game.ended && !game.world.over && !me().dead && !isPortraitBlocked(),
+  });
+
+  /* ----- Souris / appui sur la carte ----- */
+  const cast = (slot, p) => issue({ type: slot, x: p ? p.x : undefined, y: p ? p.y : undefined });
   function startAim() {
-    if (world.match && canCast(world, me(), 'skill')) aim = { slot: 'skill' };
+    if (game && game.world.match && canCast(game.world, me(), 'skill')) game.aim = { slot: 'skill' };
   }
-
   function hudAction(a) {
-    if (a.type === 'level_up') issueCommand(world, PLAYER_ID, a);
-    else if (a.type === 'bonus') issueCommand(world, PLAYER_ID, { type: 'choose_bonus_lane', lane: a.lane });
+    if (a.type === 'level_up') issue(a);
+    else if (a.type === 'bonus') issue({ type: 'choose_bonus_lane', lane: a.lane });
     else if (a.type === 'cast-slot') {
       if (a.slot === 'ult') cast('ult');
-      else if (aim) aim = null;
+      else if (game.aim) game.aim = null;
       else startAim();
     }
   }
 
   bindPointer(
     canvas,
-    (cx, cy) => renderer.toWorld(cx, cy),
+    (cx, cy) => game.renderer.toWorld(cx, cy),
     (x, y, ev) => {
-      if (world.over) return;
-      const hud = renderer.hitHud(ev.clientX, ev.clientY);
+      if (!game || game.paused || game.world.over) return;
+      const hud = game.renderer.hitHud(ev.clientX, ev.clientY);
       if (hud) {
         hudAction(hud);
         return;
       }
       if (me().dead) return;
-      if (aim) {
-        cast(aim.slot, { x, y });
-        aim = null;
+      if (game.aim) {
+        cast(game.aim.slot, { x, y });
+        game.aim = null;
         return;
       }
-      issueCommand(world, PLAYER_ID, commandForPoint(world, me(), x, y));
+      const cmd = commandForPoint(game.world, me(), x, y);
+      // Sur écran tactile, le sol ne déplace pas (joystick) : un appui ne sert qu'à verrouiller un ennemi.
+      if (touchMode && cmd.type === 'move') return;
+      issue(cmd);
     },
   );
-  canvas.addEventListener('pointermove', (e) => (pointer = renderer.toWorld(e.clientX, e.clientY)));
-  canvas.addEventListener('contextmenu', () => (aim = null));
+  canvas.addEventListener('pointermove', (e) => game && (pointer = game.renderer.toWorld(e.clientX, e.clientY)));
+  canvas.addEventListener('contextmenu', () => game && (game.aim = null));
 
   window.addEventListener('keydown', (e) => {
+    if (!game || ui.screen() !== 'game') return;
     const k = e.key.toLowerCase();
-    if (k === 'd') renderer.toggleDebug();
-    else if (k === 'n') newMatch();
-    else if (k === 's') issueCommand(world, PLAYER_ID, { type: 'stop' });
-    else if (k === 'escape') aim = null;
+    if (k === 'escape') {
+      if (game.aim) game.aim = null;
+      else setPaused(!game.paused);
+      return;
+    }
+    if (game.paused) return;
+    if (k === 'd') game.renderer.toggleDebug();
+    else if (k === 'n') startGame(game.hero);
+    else if (k === 's') issue({ type: 'stop' });
     else if (k === 'q') {
-      if (aim) {
+      if (game.aim) {
         cast('skill', pointer);
-        aim = null;
+        game.aim = null;
       } else startAim();
     } else if (k === 'r') cast('ult');
     else if (k === '1' || k === '2') {
-      const pending = world.bonus && world.bonus.choices.some((c) => c.chooserId === PLAYER_ID && !c.lane);
-      if (pending) issueCommand(world, PLAYER_ID, { type: 'choose_bonus_lane', lane: k === '1' ? 'top' : 'bottom' });
-      else issueCommand(world, PLAYER_ID, { type: 'level_up', slot: k === '1' ? 'auto' : 'skill' });
+      const pending = game.world.bonus && game.world.bonus.choices.some((c) => c.chooserId === PLAYER_ID && !c.lane);
+      if (pending) issue({ type: 'choose_bonus_lane', lane: k === '1' ? 'top' : 'bottom' });
+      else issue({ type: 'level_up', slot: k === '1' ? 'auto' : 'skill' });
     }
   });
 
+  /* ----- Fin de partie : verdict, éclats gagnés ----- */
+  function finish() {
+    game.ended = true;
+    const w = game.world;
+    const outcome = w.over.winnerTeam === null ? 'draw' : w.over.winnerTeam === TEAM_ALLY ? 'win' : 'loss';
+    const gain = duel ? 0 : rewardMatch(profile, roster, outcome);
+    if (!duel) saveProfile(localStorage, profile);
+    const title = $('#end-title');
+    title.textContent = outcome === 'win' ? 'Victoire' : outcome === 'loss' ? 'Défaite' : 'Égalité';
+    title.className = outcome;
+    const m = Math.floor(w.over.atMs / 60000);
+    const s = String(Math.floor(w.over.atMs / 1000) % 60).padStart(2, '0');
+    $('#end-sub').textContent = `${w.over.reason === 'time' ? 'Temps écoulé' : 'Noyau détruit'} · ${m}:${s} · ${w.stats.ally.kills} / ${w.stats.enemy.kills} éliminations`;
+    $('#end-reward').textContent = `+${gain}`;
+    $('#endcard').hidden = false;
+    ui.renderHome();
+  }
+
+  /* ----- Boucle ----- */
   let last = performance.now();
   let acc = 0;
   function frame(now) {
+    requestAnimationFrame(frame);
     const dt = Math.min(100, now - last);
     last = now;
-    acc += dt * speed;
-    while (acc >= STEP_MS) {
-      for (const h of world.heroes) if (h.controller === 'bot') updateBot(world, h, STEP_MS);
-      step(world, STEP_MS);
-      acc -= STEP_MS;
+    if (!game || ui.screen() !== 'game') return;
+    const blocked = game.paused || isPortraitBlocked();
+    if (!blocked) {
+      acc += dt * speed;
+      while (acc >= STEP_MS) {
+        for (const h of game.world.heroes) if (h.controller === 'bot') updateBot(game.world, h, STEP_MS);
+        step(game.world, STEP_MS);
+        acc -= STEP_MS;
+      }
     }
-    if (aim && (!world.match || me().dead || me().cast || !canCast(world, me(), aim.slot))) aim = null;
-    renderer.draw(dt, PLAYER_ID, aim ? { slot: aim.slot, x: pointer.x, y: pointer.y } : null);
-    if (world.over) {
-      const won = world.over.winnerTeam === TEAM_ALLY;
-      const verdict = world.over.winnerTeam === null ? 'Égalité' : won ? 'Victoire' : 'Défaite';
-      status.hidden = false;
-      status.textContent = `${world.over.reason === 'time' ? 'Temps écoulé · ' : ''}${verdict} · ${Math.floor(world.over.atMs / 60000)}:${String(Math.floor(world.over.atMs / 1000) % 60).padStart(2, '0')} · N pour rejouer`;
-    }
-    requestAnimationFrame(frame);
+    const p = me();
+    const aim = game.aim && (!game.world.match || p.dead || p.cast || !canCast(game.world, p, game.aim.slot)) ? null : game.aim;
+    if (!aim) game.aim = null;
+    game.renderer.draw(dt, PLAYER_ID, aim ? (aim.fromTouch ? aim : { slot: aim.slot, x: pointer.x, y: pointer.y }) : null);
+    if (touchMode) updateTouchHud(touchEls, game.world, p);
+    if (game.world.over && !game.ended) finish();
   }
   requestAnimationFrame(frame);
+
+  applyOrientation();
+  if (params.get('hero') || params.get('mode')) startGame(params.get('hero') && heroDefs[params.get('hero')] ? params.get('hero') : profile.selected);
+  else ui.go('home');
+  document.body.dataset.ready = '1';
 }
 
 boot().catch((err) => {
   console.error(err);
-  document.getElementById('status').hidden = false;
-  document.getElementById('status').textContent = `Erreur : ${err.message}`;
+  const s = document.getElementById('status');
+  s.hidden = false;
+  s.textContent = `Erreur : ${err.message}`;
+  document.getElementById('app').dataset.screen = 'game';
 });
