@@ -39,7 +39,7 @@ Cette base est volontairement **sobre et fonctionnelle**. Elle est prête à rec
 
 ## À ne pas casser
 
-- **Identifiants du DOM** utilisés par le script : `#btn-play`, `#lobby-picker`, `#lobby-allies`, `#lobby-enemies`, `#lobby-timer`, `#lobby-bar`, `#lobby-validate`, `#lobby-note`, `#lobby-back`, `#btn-characters`, `#btn-shop`, `#btn-pause`, `#btn-resume`, `#btn-quit`, `#btn-again`, `#btn-menu`, `#game`, `#touch`, `#stick-zone`, `#stick-base`, `#stick-knob`, `#btn-attack`, `#btn-skill`, `#btn-ult`, `#plus-attack`, `#plus-skill`, `#rotate`, `#hud-buttons`, `#btn-scores`, `#btn-shop-open`, `#btn-recall`, `#btn-sound`, `#inventory`, `#inv-gold`, `#gold-val`, `#gold-gain`, `#inv-slots`, `#hud-toast`, `#shop`, `#shop-backdrop`, `#shop-tabs` (boutons `data-family`), `#shop-list`, `#shop-detail`, `#shop-action`, `#shop-close`, `#shop-gold`, `#shop-where`, `#scores`, `#scores-backdrop`, `#scores-body`, `#end-table`, `#end-title`, `#end-sub`, `#end-reward`, `#home-coins`, `#home-hero`, `#version-label`, `#char-grid`, `#char-detail`, `#shop-grid`, `#shop-note`, `[data-bind="coins"]`, `[data-go]`. On peut changer leur apparence et leur place, pas leur nom.
+- **Identifiants du DOM** utilisés par le script : `#btn-play`, `#btn-cam`, `#lobby-picker`, `#lobby-allies`, `#lobby-enemies`, `#lobby-timer`, `#lobby-bar`, `#lobby-validate`, `#lobby-note`, `#lobby-back`, `#btn-characters`, `#btn-shop`, `#btn-pause`, `#btn-resume`, `#btn-quit`, `#btn-again`, `#btn-menu`, `#game`, `#touch`, `#stick-zone`, `#stick-base`, `#stick-knob`, `#btn-attack`, `#btn-skill`, `#btn-ult`, `#plus-attack`, `#plus-skill`, `#rotate`, `#hud-buttons`, `#btn-scores`, `#btn-shop-open`, `#btn-recall`, `#btn-sound`, `#inventory`, `#inv-gold`, `#gold-val`, `#gold-gain`, `#inv-slots`, `#hud-toast`, `#shop`, `#shop-backdrop`, `#shop-tabs` (boutons `data-family`), `#shop-list`, `#shop-detail`, `#shop-action`, `#shop-close`, `#shop-gold`, `#shop-where`, `#scores`, `#scores-backdrop`, `#scores-body`, `#end-table`, `#end-title`, `#end-sub`, `#end-reward`, `#home-coins`, `#home-hero`, `#version-label`, `#char-grid`, `#char-detail`, `#shop-grid`, `#shop-note`, `[data-bind="coins"]`, `[data-go]`. On peut changer leur apparence et leur place, pas leur nom.
 - **Éléments internes des boutons d'action** : `.name`, `.key`, `.cd-num`, `.lock-note`, `.pips i`. Le script y écrit le nom de la capacité, la recharge, le rang.
 - **Le canvas `#game`** doit rester en `position: absolute; inset: 0`. Un canvas flexible dont la taille dépend de son contenu grossit sans fin sur un écran à densité 2 ou 3.
 - **`index.html` entre les marqueurs** `<!--version:start-->…<!--version:end-->` et `<!--entry:start-->…<!--entry:end-->` : généré par `npm run bump`, ne pas éditer à la main.
@@ -61,7 +61,7 @@ Un numéro de version unique vit dans `version.json`. Chaque fichier chargé (mo
 
 ## Vérifier
 
-`npm test` doit rester vert (171 tests). Il couvre le profil, la boutique du menu, la cohérence des versions, la carte d'import, le joystick, les boutons d'action, ainsi que l'or, les règles d'achat, les douze objets, le rappel et le tableau des scores.
+`npm test` doit rester vert (186 tests). Il couvre le profil, la boutique du menu, la cohérence des versions, la carte d'import, le joystick, les boutons d'action, ainsi que l'or, les règles d'achat, les douze objets, le rappel et le tableau des scores.
 
 ## Boutique, scores, rappel : points d'attention pour l'habillage
 
@@ -80,3 +80,7 @@ Le terrain Canvas affiche un sol texturé déterministe, des chemins de pierre e
 Validation : suite Node complète et parcours Chromium aux formats 1440×900, 844×390 et 667×375 (accueil, personnages, boutique, sélection, lancement et boutique en partie). Les contrôles de ciblage ont aussi été exercés sur PC et mobile. Les performances sur téléphones physiques restent à vérifier.
 
 - Gains d'or : le compteur du HUD monte en continu (or du temps) ; l'indicateur `#gold-gain` (« +20 ») ne s'affiche que pour les gains ponctuels (dernier coup, présence, objectif, élimination), jamais pour le revenu du temps (événement `gold` avec `source: 'passive'`). L'événement porte maintenant `source` (`kill`, `lane`, `tower`, `boss`, `passive`) : utile pour de futurs sons ou chiffres flottants.
+
+## Caméra : bouton `#btn-cam`
+
+Bouton rond de 44 px, sous la mini-carte à gauche (hors du joystick), masqué dans le duel. Classes posées par le script : `.free` (caméra décalée ou libre, surlignée en or) et `.held` (mode libre maintenu). Appui court = recentrer, appui long = caméra libre. Il peut être restylé librement ; son identifiant et ces deux classes doivent rester. Le canvas continue d'envoyer ses glissés à la caméra : ne pas recouvrir la zone centrale et droite d'éléments qui capturent les doigts.
