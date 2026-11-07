@@ -1,6 +1,6 @@
 {
   "name": "moba-3v3",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "type": "module",
   "description": "MOBA 3v3 — lot 1 : terrain et combat (Yeji au katana vs Jennie)",

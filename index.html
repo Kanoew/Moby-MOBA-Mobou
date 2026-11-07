@@ -14,33 +14,34 @@
   <link rel="icon" href="assets/ui/icon.svg" type="image/svg+xml">
   <!-- Bloc généré par `npm run bump` : version, carte d'import des modules, manifeste, feuille de style. Ne pas éditer à la main. -->
   <!--version:start-->
-  <script>window.APP_VERSION = "0.10.0";</script>
+  <script>window.APP_VERSION = "0.11.0";</script>
   <script type="importmap">{
   "imports": {
-    "./src/input/pointer.js": "./src/input/pointer.js?v=0.10.0",
-    "./src/main.js": "./src/main.js?v=0.10.0",
-    "./src/render/animator.js": "./src/render/animator.js?v=0.10.0",
-    "./src/render/renderer.js": "./src/render/renderer.js?v=0.10.0",
-    "./src/sim/abilities.js": "./src/sim/abilities.js?v=0.10.0",
-    "./src/sim/bot.js": "./src/sim/bot.js?v=0.10.0",
-    "./src/sim/jungle.js": "./src/sim/jungle.js?v=0.10.0",
-    "./src/sim/path.js": "./src/sim/path.js?v=0.10.0",
-    "./src/sim/progression.js": "./src/sim/progression.js?v=0.10.0",
-    "./src/sim/recall.js": "./src/sim/recall.js?v=0.10.0",
-    "./src/sim/shop.js": "./src/sim/shop.js?v=0.10.0",
-    "./src/sim/vision.js": "./src/sim/vision.js?v=0.10.0",
-    "./src/sim/world.js": "./src/sim/world.js?v=0.10.0",
-    "./src/ui/hud.js": "./src/ui/hud.js?v=0.10.0",
-    "./src/ui/lobby.js": "./src/ui/lobby.js?v=0.10.0",
-    "./src/ui/profile.js": "./src/ui/profile.js?v=0.10.0",
-    "./src/ui/scoreboard.js": "./src/ui/scoreboard.js?v=0.10.0",
-    "./src/ui/screens.js": "./src/ui/screens.js?v=0.10.0",
-    "./src/ui/sound.js": "./src/ui/sound.js?v=0.10.0",
-    "./src/ui/touch.js": "./src/ui/touch.js?v=0.10.0"
+    "./src/input/pointer.js": "./src/input/pointer.js?v=0.11.0",
+    "./src/main.js": "./src/main.js?v=0.11.0",
+    "./src/render/animator.js": "./src/render/animator.js?v=0.11.0",
+    "./src/render/camera.js": "./src/render/camera.js?v=0.11.0",
+    "./src/render/renderer.js": "./src/render/renderer.js?v=0.11.0",
+    "./src/sim/abilities.js": "./src/sim/abilities.js?v=0.11.0",
+    "./src/sim/bot.js": "./src/sim/bot.js?v=0.11.0",
+    "./src/sim/jungle.js": "./src/sim/jungle.js?v=0.11.0",
+    "./src/sim/path.js": "./src/sim/path.js?v=0.11.0",
+    "./src/sim/progression.js": "./src/sim/progression.js?v=0.11.0",
+    "./src/sim/recall.js": "./src/sim/recall.js?v=0.11.0",
+    "./src/sim/shop.js": "./src/sim/shop.js?v=0.11.0",
+    "./src/sim/vision.js": "./src/sim/vision.js?v=0.11.0",
+    "./src/sim/world.js": "./src/sim/world.js?v=0.11.0",
+    "./src/ui/hud.js": "./src/ui/hud.js?v=0.11.0",
+    "./src/ui/lobby.js": "./src/ui/lobby.js?v=0.11.0",
+    "./src/ui/profile.js": "./src/ui/profile.js?v=0.11.0",
+    "./src/ui/scoreboard.js": "./src/ui/scoreboard.js?v=0.11.0",
+    "./src/ui/screens.js": "./src/ui/screens.js?v=0.11.0",
+    "./src/ui/sound.js": "./src/ui/sound.js?v=0.11.0",
+    "./src/ui/touch.js": "./src/ui/touch.js?v=0.11.0"
   }
 }</script>
-  <link rel="manifest" href="manifest.webmanifest?v=0.10.0">
-  <link rel="stylesheet" href="styles/ui.css?v=0.10.0">
+  <link rel="manifest" href="manifest.webmanifest?v=0.11.0">
+  <link rel="stylesheet" href="styles/ui.css?v=0.11.0">
   <!--version:end-->
 </head>
 <body>
@@ -139,6 +140,7 @@
       </div>
 
       <!-- Lot 4 : boutons de partie, inventaire, boutique, scores. Identifiants listés dans docs/ui-guide.md. -->
+      <button id="btn-cam" class="hud-btn" type="button" aria-label="Recentrer la caméra (appui long : caméra libre)" title="Recentrer (Espace) · appui long ou Y : caméra libre"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       <button id="target-toggle" class="hud-btn" type="button" aria-controls="target-controls" aria-expanded="false">Ciblage ▾</button>
       <div id="target-controls" role="group" aria-label="Ciblage des attaques">
         <button class="hud-btn" data-target-mode="nearest" title="Cible proche (A)">Attaque <kbd>A</kbd></button>
@@ -222,7 +224,7 @@
 
   <!-- Bloc généré par `npm run bump` : script d'entrée versionné. -->
   <!--entry:start-->
-  <script type="module" src="src/main.js?v=0.10.0"></script>
+  <script type="module" src="src/main.js?v=0.11.0"></script>
   <!--entry:end-->
 </body>
 </html>

@@ -6,6 +6,7 @@ import { edgeDistance, getUnit, isVulnerable } from '../sim/world.js';
 import { directionFromFacing, frameAt, pickSprite } from './animator.js';
 import { cooldownLeft } from '../sim/abilities.js';
 import { xpToNext } from '../sim/progression.js';
+import { createCamera } from './camera.js';
 
 const COLORS = {
   ally: '#34d3e8',
@@ -81,6 +82,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
   const visible = (u) => unitVisibleTo(world, u, localTeamOf());
   let debug = false;
   let cam = { x: world.map.width / 2, y: world.map.height / 2 };
+  const camera = createCamera();
   let lastView = { scale: 1, ox: 0, oy: 0, dpr: 1 };
   const matchMode = !!world.match;
 
@@ -129,7 +131,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
   const localIdOf = () => localId_;
   const localTeamOf = () => (getUnit(world, localId_) ? getUnit(world, localId_).team : 'ally');
 
-  function view(localId) {
+  function view(localId, dtMs = 16, aim = null) {
     const dpr = Math.min(2, window.devicePixelRatio || 1); // limiter le coût GPU des écrans mobiles à densité élevée
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
@@ -141,11 +143,16 @@ export function createRenderer(canvas, world, images, opts = {}) {
     if (matchMode) {
       scale = canvas.height / VIEW_H;
       const local = localId ? getUnit(world, localId) : null;
-      if (local) cam = { x: local.x, y: local.y - 60 };
       const halfW = canvas.width / scale / 2;
       const halfH = canvas.height / scale / 2;
-      cam.x = world.map.width <= halfW * 2 ? world.map.width / 2 : Math.min(world.map.width - halfW, Math.max(halfW, cam.x));
-      cam.y = world.map.height <= halfH * 2 ? world.map.height / 2 : Math.min(world.map.height - halfH, Math.max(halfH, cam.y));
+      // Caméra hybride (src/render/camera.js) : suivi lissé, exploration temporaire, décalage vers la visée, bornes de la carte.
+      const c = camera.update(dtMs, {
+        hero: local ? { x: local.x, y: local.y, dashing: !!local.dashing, dead: !!local.dead } : null,
+        aim: aim && Number.isFinite(aim.x) ? aim : null,
+        map: world.map,
+        view: { halfW, halfH },
+      });
+      cam = { x: c.x, y: c.y };
     } else {
       scale = Math.min(canvas.width / world.map.width, canvas.height / world.map.height);
       cam = { x: world.map.width / 2, y: world.map.height / 2 };
@@ -1178,7 +1185,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
 
   function draw(dtMs, localId, aim) {
     localId_ = localId;
-    const { scale, ox, oy } = view(localId);
+    const { scale, ox, oy } = view(localId, dtMs, aim);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#0b0e15';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1225,6 +1232,9 @@ export function createRenderer(canvas, world, images, opts = {}) {
   return {
     draw,
     toWorld,
+    camera,
+    /** Unités monde par pixel CSS : pour convertir un glissé d'écran en déplacement de caméra. */
+    worldPerCssPx: () => 1 / (lastView.scale / lastView.dpr),
     hitHud,
     setDebug: (v) => (debug = v),
     toggleDebug: () => (debug = !debug),

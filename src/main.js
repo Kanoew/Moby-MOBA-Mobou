@@ -62,7 +62,7 @@ async function boot() {
   const status = $('#status');
   const app = $('#app');
   const helpEl = $('#help');
-  helpEl.textContent = 'Clic : déplacer / verrouiller · Q : visée de la compétence (clic ou Q pour lancer, Échap annule) · R : ultime · 1 / 2 : +auto / +skill · S : stop · D : debug · N : rejouer · Échap : pause';
+  helpEl.textContent = 'Clic : déplacer / verrouiller · Q : visée de la compétence (clic ou Q pour lancer, Échap annule) · R : ultime · 1 / 2 : +auto / +skill · S : stop · flèches / molette enfoncée : explorer · Espace : recentrer · Y : caméra libre · D : debug · N : rejouer · Échap : pause';
 
   const touchEls = {
     root: $('#touch'),
@@ -76,6 +76,7 @@ async function boot() {
     plusSkill: $('#plus-skill'),
   };
   touchEls.root.hidden = !touchMode;
+  const camKeys = new Set(); // flèches maintenues : exploration de la carte au clavier
 
   const duel = params.get('mode') === 'duel';
   const speed = Math.max(1, Math.min(20, Number(params.get('speed')) || 1));
@@ -253,6 +254,16 @@ async function boot() {
       if (touchMode && cmd.type === 'move') return;
       issue(cmd);
     },
+    {
+      // Caméra hybride : un glissé (doigt sur la zone libre, ou molette enfoncée) déplace la vue, il ne donne aucun ordre.
+      isHudHit: (ev) => !!(game && game.renderer.hitHud(ev.clientX, ev.clientY)),
+      onPan: (dx, dy) => {
+        if (!game || game.paused || game.world.over || isPortraitBlocked()) return;
+        const k = game.renderer.worldPerCssPx();
+        game.renderer.camera.pan(-dx * k, -dy * k); // la vue suit le doigt comme si l'on tirait la carte
+      },
+      onPanEnd: () => game && game.renderer.camera.release(),
+    },
   );
   canvas.addEventListener('pointermove', (e) => game && (pointer = game.renderer.toWorld(e.clientX, e.clientY)));
   canvas.addEventListener('contextmenu', () => game && (game.aim = null));
@@ -277,7 +288,17 @@ async function boot() {
       return;
     }
     if (game.paused) return;
-    if (k === 'd') game.renderer.toggleDebug();
+    if (k === 'arrowleft' || k === 'arrowright' || k === 'arrowup' || k === 'arrowdown') {
+      camKeys.add(k);
+      e.preventDefault();
+    } else if (k === ' ') {
+      e.preventDefault();
+      game.renderer.camera.recenter();
+    } else if (k === 'y') {
+      if (e.repeat) return;
+      const held = game.renderer.camera.toggleHold();
+      hud.toast(held ? 'Caméra libre · Espace pour recentrer' : 'Caméra liée au héros');
+    } else if (k === 'd') game.renderer.toggleDebug();
     else if (k === 'n') startGame(game.hero);
     else if (k === 's') issue({ type: 'stop' });
     else if (k === 'q') {
@@ -299,7 +320,37 @@ async function boot() {
 
   window.addEventListener('keyup', (e) => {
     if (e.key === 'Tab' && game) hud.showScores(false);
+    if (camKeys.delete(e.key.toLowerCase()) && !camKeys.size && game) game.renderer.camera.release();
   });
+  window.addEventListener('blur', () => {
+    if (camKeys.size && game) game.renderer.camera.release();
+    camKeys.clear();
+  });
+
+  // Bouton de caméra : appui court = recentrer tout de suite ; appui long = caméra libre maintenue (ou retour au suivi).
+  const camBtn = $('#btn-cam');
+  let camPress = null;
+  camBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!game) return;
+    camPress = { id: e.pointerId, long: false, timer: setTimeout(() => {
+      if (!camPress || !game) return;
+      camPress.long = true;
+      const held = game.renderer.camera.toggleHold();
+      hud.toast(held ? 'Caméra libre · touchez ◎ pour recentrer' : 'Caméra liée au héros');
+    }, 450) };
+    try { camBtn.setPointerCapture(e.pointerId); } catch { /* sans effet */ }
+  });
+  const camEnd = (e, cancel) => {
+    if (!camPress || e.pointerId !== camPress.id) return;
+    clearTimeout(camPress.timer);
+    const { long } = camPress;
+    camPress = null;
+    if (!cancel && !long && game) game.renderer.camera.recenter();
+  };
+  camBtn.addEventListener('pointerup', (e) => camEnd(e, false));
+  camBtn.addEventListener('pointercancel', (e) => camEnd(e, true));
   const closeTargetMenu = () => {
     $('#target-controls').classList.remove('open');
     $('#target-toggle').setAttribute('aria-expanded', 'false');
@@ -375,10 +426,17 @@ async function boot() {
       }
     }
     const p = me();
+    if (camKeys.size && !game.paused) {
+      const v = (1600 * dt) / 1000; // unités monde par image
+      game.renderer.camera.pan((camKeys.has('arrowright') ? v : 0) - (camKeys.has('arrowleft') ? v : 0), (camKeys.has('arrowdown') ? v : 0) - (camKeys.has('arrowup') ? v : 0));
+    }
     const aim = game.aim && (!game.world.match || p.dead || !(canCast(game.world, p, game.aim.slot) || canQueueCast(game.world, p, game.aim.slot))) ? null : game.aim;
     if (!aim) game.aim = null;
     game.renderer.draw(blocked ? 0 : dt, PLAYER_ID, aim ? (aim.fromTouch ? aim : { slot: aim.slot, x: pointer.x, y: pointer.y }) : null);
     if (touchMode) updateTouchHud(touchEls, game.world, p);
+    const cs = game.renderer.camera.state();
+    camBtn.classList.toggle('free', cs.free || cs.held);
+    camBtn.classList.toggle('held', cs.held);
     if (game.world.match) hud.update();
     if (game.world.over && !game.ended) finish();
   }
