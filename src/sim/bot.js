@@ -58,10 +58,10 @@ function duelThink(world, hero) {
     }
   }
   if (!best) return;
-  lockTarget(world, hero, best);
   const desired = hero.def.auto.range * 0.85;
   if (bestD > desired) moveTo(world, hero, approachPoint(hero, best, desired), 1);
   else stopIfMoving(world, hero);
+  lockTarget(world, hero, best);
 }
 
 /* --------------------------------- match -------------------------------- */
@@ -498,10 +498,10 @@ function matchThink(world, hero) {
   if (tryAbilities(world, hero, target)) return;
 
   if (target) {
-    lockTarget(world, hero, target);
     const desired = hero.def.auto.range * 0.88;
     if (edgeDistance(hero, target) > desired) moveTo(world, hero, approachPoint(hero, target, desired), 30);
     else stopIfMoving(world, hero);
+    lockTarget(world, hero, target);
     return;
   }
 

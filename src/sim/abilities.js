@@ -20,6 +20,13 @@ export function canCast(world, hero, slot) {
   return world.time >= hero.cd[slot];
 }
 
+/** Petite fenêtre de saisie pour enchaîner sans couper l'animation en cours. */
+export function canQueueCast(world, hero, slot) {
+  return !!hero.cast && !world.over && !hero.dead && !!abilityOf(hero, slot)
+    && hero.cast.ab.lockMs - hero.cast.t <= 160
+    && hero.rank[slot] > 0 && hero.cd[slot] <= world.time;
+}
+
 const minSkillCooldown = (world) => (world.match && world.match.items ? world.match.items.rules.minSkillCooldownMs : 0);
 /** Relique : renforce la valeur principale désignée dans les données de l'ultime. */
 const ultMult = (hero, ab, key) => (ab.primary === key && hero.fx ? 1 + hero.fx.ultBonus : 1);
@@ -91,6 +98,7 @@ export function startCast(world, hero, slot, aim) {
     dir = len > 1 ? { x: (ax - hero.x) / len, y: (ay - hero.y) / len } : { ...hero.facing };
   }
 
+  hero.bufferedCommand = hero.steer ? { type: 'steer', ...hero.steer } : null;
   cancelSwing(world, hero, 'cast');
   hero.moveTarget = null;
   hero.steer = null;

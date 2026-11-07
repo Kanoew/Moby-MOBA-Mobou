@@ -6,6 +6,16 @@ Trois compagnons jouables, mêmes des deux côtés : **Yeji** (katana, mêlée r
 
 Aucune dépendance : un navigateur récent et Node ≥ 20.
 
+## Combat 0.9.0 : continuité des commandes
+
+- Une commande de déplacement, de ciblage ou d'arrêt pendant une compétence est mémorisée et exécutée à la fin du lancer. La dernière intention remplace la précédente. Relâcher le joystick pendant le lancer annule donc le déplacement en attente ; un joystick maintenu reprend après le lancer.
+- Une compétence prête peut être mise en attente pendant les dernières 160 ms du lancer courant. Les recharges et les niveaux requis restent respectés, et l'animation en cours n'est pas interrompue.
+- En poursuite explicite, après l'impact d'une auto, le héros peut reprendre sa course si l'adversaire sort de portée. Cette récupération écourtée ne réinitialise pas la cadence.
+- Après la perte d'une cible, l'attaque explicite peut enchaîner sur une autre cible déjà à portée, selon le filtre choisi. Sans cible admissible, elle s'arrête. Un déplacement manuel annule cet enchaînement ; un simple clic de verrou n'active pas cette assistance.
+- Stop annule aussi le verrou et l'attaque en cours. Il ne retire pas un projectile déjà parti et ne coupe pas une compétence en cours : dans ce cas l'arrêt est mémorisé.
+
+Ces changements reprennent les principes de continuité des commandes et de déplacement entre les coups courants dans les MOBA, sans reproduire les valeurs d'un titre particulier. Les timings d'impact restent synchronisés avec les animations existantes.
+
 ## Ajustements 0.8.0 : équipement, rythme et rendu
 
 Les objets offensifs ajoutent maintenant de l'Attaque permanente, utilisée par les autos et les coefficients des compétences : Lame courte +10, Dague +24, Gants +22, Marteau +28, Grimoire +8, Catalyseur +14, Relique +18, Sceau +16. Ces statistiques s'ajoutent aux passifs déjà décrits ci-dessous. Elles se cumulent entre objets différents et disparaissent à la revente. La boutique affiche l'Attaque actuelle et sa valeur après achat/revente. Prix et règles d'achat restent identiques.

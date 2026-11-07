@@ -197,13 +197,13 @@ test('steer : normalise la direction, respecte les obstacles, suspend les autos,
   assert.equal(a.steer, null);
 });
 
-test('steer : ignoré pendant un lancer, effacé à la mort, ralenti par une zone', () => {
+test('steer : mémorisé pendant un lancer, effacé à la mort, ralenti par une zone', () => {
   const w = duelWorld('sweetie');
   const a = getUnit(w, 'a');
   a.x = 1000; a.y = 215;
   a.rank.ult = 1; a.level = 3;
   issueCommand(w, 'a', { type: 'ult' });
-  assert.equal(issueCommand(w, 'a', { type: 'steer', x: 1, y: 0 }), false, 'un lancer en cours ne s\'interrompt pas');
+  assert.equal(issueCommand(w, 'a', { type: 'steer', x: 1, y: 0 }), true, 'le déplacement est mémorisé sans interrompre le lancer');
   for (let t = 0; t < 600; t += DT) step(w, DT);
   issueCommand(w, 'a', { type: 'steer', x: 1, y: 0 });
   a.slow = { frac: 0.5, until: w.time + 5000 };
