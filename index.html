@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>MOBA 3v3 · Lot 1</title>
+  <title>MOBA 3v3 · Lot 3</title>
   <style>
     html, body { margin: 0; height: 100%; background: #0b0e15; color: #f4f1e8; font-family: system-ui, sans-serif; overflow: hidden; }
     #game { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: crosshair; }
-    #status { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); padding: 8px 18px; border-radius: 8px; background: rgba(12,16,26,.88); border: 1px solid #ffd36b; font-weight: 600; }
-    #help { position: fixed; left: 12px; bottom: 10px; font-size: 13px; opacity: .7; }
+    #status { position: fixed; left: 50%; top: 70px; transform: translateX(-50%); padding: 8px 18px; border-radius: 8px; background: rgba(12,16,26,.88); border: 1px solid #ffd36b; font-weight: 600; }
+    #help { position: fixed; right: 12px; bottom: 6px; font-size: 12px; opacity: .6; max-width: 46vw; text-align: right; }
   </style>
 </head>
 <body>
   <canvas id="game"></canvas>
   <div id="status" hidden></div>
-  <div id="help">Clic sol : se déplacer · Clic ennemi : verrouiller · S : stop · D : debug · R : rejouer</div>
+  <div id="help">Clic : déplacer / verrouiller · Q : visée de la compétence (clic ou Q pour lancer, Échap annule) · R : ultime · 1 / 2 : +auto / +skill · S : stop · D : debug · N : rejouer</div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
