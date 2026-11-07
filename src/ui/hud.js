@@ -298,6 +298,7 @@ export function createHud({ issue, getGame, localId, heroDefs }) {
         break;
       case 'gold':
         if (ev.source === 'passive') break; // le revenu du temps fait seulement monter le compteur : pas de « +2 » toutes les secondes
+        play('gold');
         els.goldGain.textContent = `+${ev.amount}`;
         els.goldGain.classList.remove('pop');
         void els.goldGain.offsetWidth;

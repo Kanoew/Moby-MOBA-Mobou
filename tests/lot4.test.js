@@ -651,7 +651,13 @@ test('bots : ils achètent leur starter dès le départ, puis des gros objets, e
   assert.deepEqual(getUnit(w, 'a0').items[0], 'lame-courte');
   assert.deepEqual(getUnit(w, 'a1').items[0], 'ceinture');
   assert.deepEqual(getUnit(w, 'a2').items[0], 'grimoire');
-  run(w, 8 * 60000, true);
+  // Le scénario vérifie le cycle d'achat, indépendamment des derniers coups modifiés par la vision.
+  run(w, 3200, true);
+  const shopper = getUnit(w, 'a0');
+  place(shopper, 800, 900);
+  shopper.gold = itemDef(w, 'dague-ouverture').priceGold;
+  run(w, 12000, true);
+  assert.ok(shopper.items.includes('dague-ouverture'), 'achat du gros objet après rappel');
   assert.ok(w.heroes.some((h) => h.items.filter(Boolean).length >= 2), 'au moins un gros objet acheté');
   assert.ok(count(w, 'recall_complete') >= 1, 'au moins un rappel mené à terme');
   assert.ok(w.heroes.every((h) => h.items.filter(Boolean).length <= 3));

@@ -29,7 +29,7 @@ export function startingGold(match) {
 export function awardGold(world, hero, amount, source = 'kill') {
   if (!hero || hero.kind !== 'hero' || !amount || !world.match) return;
   hero.gold += amount;
-  emit(world, { type: 'gold', heroId: hero.id, amount, source });
+  emit(world, { type: 'gold', heroId: hero.id, amount, source, x: hero.x, y: hero.y });
 }
 
 /** Or du temps qui passe : chaque héros vivant en gagne `passivePerSec` par seconde, versé en petits paliers entiers. */
@@ -113,7 +113,7 @@ export function sellItem(world, hero, itemId) {
   const it = itemDef(world, itemId);
   const gain = sellValue(world, it);
   hero.items[hero.items.indexOf(itemId)] = null;
-  hero.gold += gain;
+  awardGold(world, hero, gain, 'sale');
   recomputeItems(world, hero);
   emit(world, { type: 'item_sold', heroId: hero.id, itemId, gain });
   return r;
