@@ -1,19 +1,32 @@
 // Entrées souris et tactile → commandes. Un clic sur un ennemi le verrouille, sinon déplacement au sol.
-import { isVisibleTo } from '../sim/world.js';
+import { isTargetable } from '../sim/world.js';
 
-/** Ennemi sous le point (tolérance un peu large pour le tactile). */
+/** Unité ennemie ciblable sous le point (tolérance un peu large pour le tactile). Héros > sbires > structures. */
 export function pickEnemyAt(world, localHero, x, y, padding = 18) {
   let best = null;
+  let bestTier = 9;
   let bestD = Infinity;
-  for (const h of world.heroes) {
-    if (h.dead || h.team === localHero.team || !isVisibleTo(h, localHero.team)) continue;
-    // Boîte approximative du sprite : large de 2 rayons + marge, haute d'environ 150 px au-dessus des pieds.
-    const dx = Math.abs(x - h.x);
-    const inside = dx <= h.radius + padding && y >= h.y - 150 - padding && y <= h.y + h.radius + padding;
-    if (!inside) continue;
-    const d = Math.hypot(x - h.x, y - (h.y - 60));
-    if (d < bestD) {
-      best = h;
+  for (const u of world.units) {
+    if (!isTargetable(world, localHero, u)) continue;
+    let hit;
+    let d;
+    if (u.kind === 'hero') {
+      // Boîte approximative du sprite : large de 2 rayons + marge, haute d'environ 150 px au-dessus des pieds.
+      hit = Math.abs(x - u.x) <= u.radius + padding && y >= u.y - 150 - padding && y <= u.y + u.radius + padding;
+      d = Math.hypot(x - u.x, y - (u.y - 60));
+    } else if (u.kind === 'minion') {
+      hit = Math.hypot(x - u.x, y - (u.y - u.radius)) <= u.radius * 1.6 + padding;
+      d = Math.hypot(x - u.x, y - u.y);
+    } else {
+      // Tour / noyau : socle et fût.
+      hit = Math.abs(x - u.x) <= u.radius + padding * 0.5 && y >= u.y - 170 && y <= u.y + u.radius * 0.5 + padding;
+      d = Math.hypot(x - u.x, y - u.y);
+    }
+    if (!hit) continue;
+    const tier = u.kind === 'hero' ? 0 : u.kind === 'minion' ? 1 : 2;
+    if (tier < bestTier || (tier === bestTier && d < bestD)) {
+      best = u;
+      bestTier = tier;
       bestD = d;
     }
   }

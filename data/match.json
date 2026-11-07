@@ -1,0 +1,50 @@
+{
+  "spawnZoneRadius": 230,
+  "spawnOpenMs": 5000,
+  "baseRegenPctPerSec": 0.08,
+  "respawn": [
+    { "atS": 120, "sec": 5 },
+    { "atS": 300, "sec": 11 },
+    { "atS": 540, "sec": 20 }
+  ],
+  "assistWindowMs": 10000,
+  "towerAggroMs": 2500,
+  "spawnSlots": { "dx": 70, "dy": 100 },
+  "waves": {
+    "firstMs": 30000,
+    "intervalMs": 30000,
+    "staggerMs": 450,
+    "composition": ["melee", "melee", "melee", "ranged"]
+  },
+  "units": {
+    "melee": {
+      "kind": "minion", "name": "Sbire", "radius": 20,
+      "stats": { "hp": 240, "atk": 12, "def": 0, "speed": 150 },
+      "ai": { "aggro": 420, "leash": 650 },
+      "auto": { "kind": "melee", "range": 60, "hitSlack": 20, "intervalMs": 1000, "hitMs": 250, "durationMs": 450 }
+    },
+    "ranged": {
+      "kind": "minion", "name": "Sbire à distance", "radius": 18,
+      "stats": { "hp": 160, "atk": 16, "def": 0, "speed": 150 },
+      "ai": { "aggro": 420, "leash": 650 },
+      "auto": { "kind": "projectile", "range": 280, "intervalMs": 1200, "hitMs": 300, "durationMs": 500,
+                "projectile": { "speed": 700, "radius": 10, "maxLifeMs": 2500 } }
+    },
+    "tower-outer": {
+      "kind": "tower", "tier": "outer", "name": "Tour extérieure", "radius": 60,
+      "stats": { "hp": 1800, "atk": 130, "def": 30, "speed": 0 },
+      "auto": { "kind": "projectile", "range": 400, "intervalMs": 1200, "hitMs": 100, "durationMs": 300,
+                "projectile": { "speed": 1300, "radius": 12, "maxLifeMs": 2000 } }
+    },
+    "tower-inner": {
+      "kind": "tower", "tier": "inner", "name": "Tour intérieure", "radius": 66,
+      "stats": { "hp": 2200, "atk": 140, "def": 30, "speed": 0 },
+      "auto": { "kind": "projectile", "range": 400, "intervalMs": 1200, "hitMs": 100, "durationMs": 300,
+                "projectile": { "speed": 1300, "radius": 12, "maxLifeMs": 2000 } }
+    },
+    "core": {
+      "kind": "core", "name": "Noyau", "radius": 90,
+      "stats": { "hp": 3000, "atk": 0, "def": 20, "speed": 0 }
+    }
+  }
+}

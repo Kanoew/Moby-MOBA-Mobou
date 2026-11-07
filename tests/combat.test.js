@@ -6,7 +6,7 @@ import { updateBot } from '../src/sim/bot.js';
 import { frameAt, directionFromFacing } from '../src/render/animator.js';
 
 const load = (p) => JSON.parse(readFileSync(new URL(`../data/${p}`, import.meta.url), 'utf8'));
-const map = load('map.json');
+const map = load('arena.json');
 const heroDefs = load('heroes.json');
 const DT = 16;
 
