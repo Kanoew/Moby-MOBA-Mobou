@@ -90,6 +90,7 @@ async function boot() {
   const issue = (cmd) => (game ? issueCommand(game.world, PLAYER_ID, cmd) : false);
   const hud = createHud({ issue, getGame: () => game, localId: PLAYER_ID, heroDefs });
   window.addEventListener('pointerdown', unlockAudio, { capture: true });
+  window.addEventListener('keydown', unlockAudio, { capture: true });
 
   function makeRoster(hero, picks) {
     if (duel) {
@@ -431,7 +432,7 @@ async function boot() {
     }
     const aim = game.aim && (!game.world.match || p.dead || !(canCast(game.world, p, game.aim.slot) || canQueueCast(game.world, p, game.aim.slot))) ? null : game.aim;
     if (!aim) game.aim = null;
-    game.renderer.draw(dt, PLAYER_ID, aim ? (aim.fromTouch ? aim : { slot: aim.slot, x: pointer.x, y: pointer.y }) : null);
+    game.renderer.draw(blocked ? 0 : dt, PLAYER_ID, aim ? (aim.fromTouch ? aim : { slot: aim.slot, x: pointer.x, y: pointer.y }) : null);
     if (touchMode) updateTouchHud(touchEls, game.world, p);
     const cs = game.renderer.camera.state();
     camBtn.classList.toggle('free', cs.free || cs.held);

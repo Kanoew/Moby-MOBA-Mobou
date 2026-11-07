@@ -1,5 +1,7 @@
 // Rendu canvas : lit l'état de simulation, ne le modifie jamais.
 // Les sbires, tours et noyaux sont dessinés de façon procédurale (aucun sprite fourni pour l'instant).
+import { VISION_RADII, pointVisibleTo, unitVisibleTo, visionSources } from '../sim/vision.js';
+import { play } from '../ui/sound.js';
 import { edgeDistance, getUnit, isVulnerable } from '../sim/world.js';
 import { directionFromFacing, frameAt, pickSprite } from './animator.js';
 import { cooldownLeft } from '../sim/abilities.js';
@@ -18,7 +20,6 @@ const COLORS = {
   gold: '#ffd36b',
 };
 const VIEW_H = 900; // hauteur visible en unités monde (mode match)
-const VISION = 900; // un ennemi n'apparaît sur la minimap que s'il est vu par un allié
 
 export function loadImages(paths) {
   const out = {};
@@ -70,6 +71,15 @@ export function createRenderer(canvas, world, images, opts = {}) {
   let ctx = canvas.getContext('2d');
   const clocks = new Map(); // unité → { state, since }
   const floaters = [];
+  const sparks = [];
+  const fog = document.createElement('canvas');
+  fog.width = Math.ceil(world.map.width / 4);
+  fog.height = Math.ceil(world.map.height / 4);
+  const fogCtx = fog.getContext('2d');
+  let introBeat = null;
+  let lastHitSound = -Infinity;
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const visible = (u) => unitVisibleTo(world, u, localTeamOf());
   let debug = false;
   let cam = { x: world.map.width / 2, y: world.map.height / 2 };
   const camera = createCamera();
@@ -84,9 +94,22 @@ export function createRenderer(canvas, world, images, opts = {}) {
   world.onEvent = (ev) => {
     if (ev.type === 'damage') {
       const t = getUnit(world, ev.targetId);
-      if (t && t.kind !== 'minion') {
+      if (t && visible(t)) {
         const text = ev.amount > 0 ? String(ev.amount) : ev.absorbed > 0 ? `🛡 ${ev.absorbed}` : '0';
-        floaters.push({ x: t.x, y: t.y - (t.kind === 'hero' ? 130 : t.kind === 'monster' ? 110 : 90), text, age: 0 });
+        floaters.push({ x: t.x, y: t.y - (t.kind === 'hero' ? 130 : t.kind === 'monster' ? 110 : 90), text, age: 0, life: 900, color: '#ffe9a8' });
+        if (!reducedMotion && ev.amount > 0) sparks.push({ x: t.x, y: t.y - 45, age: 0, life: 200, impact: true });
+        if (ev.sourceId === localIdOf() && world.time - lastHitSound > 90) { play('hit'); lastHitSound = world.time; }
+      }
+    } else if (ev.type === 'move_order' && ev.heroId === localIdOf() && !reducedMotion) {
+      sparks.push({ x: ev.x, y: ev.y, age: 0, life: 450, move: true });
+    } else if (ev.type === 'gold' && ev.heroId === localIdOf() && ev.source !== 'passive') {
+      const hero = getUnit(world, ev.heroId);
+      const x = ev.x ?? hero.x;
+      const y = (ev.y ?? hero.y) - 115;
+      const stack = floaters.filter((f) => f.gold && f.age < 450).length;
+      floaters.push({ x, y: y - stack * 25, text: `+${ev.amount} or`, age: 0, life: 1200, color: COLORS.gold, gold: true });
+      if (!reducedMotion) for (let i = 0; i < Math.min(7, 3 + Math.floor(ev.amount / 30)); i++) {
+        sparks.push({ x, y: y + 35, age: 0, life: 850, coin: true, vx: Math.cos(i * 2.4) * 65, vy: -90 - i * 12, phase: i });
       }
     } else if (ev.type === 'boss_announce') toast(`Le Cerbère apparaît dans ${Math.round(ev.spawnInMs / 1000)} s`, 6000);
     else if (ev.type === 'boss_spawn') toast('Le Cerbère est apparu au centre', 4500);
@@ -624,7 +647,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
       ctx.beginPath();
       ctx.ellipse(c.x, c.y, 60, 34, 0, 0, Math.PI * 2);
       ctx.stroke();
-      if (c.respawnAt !== null) {
+      if (c.respawnAt !== null && pointVisibleTo(world, localTeamOf(), c.x, c.y)) {
         ctx.setLineDash([]);
         ctx.fillStyle = 'rgba(230,200,255,0.8)';
         ctx.font = '600 20px system-ui, sans-serif';
@@ -761,16 +784,17 @@ export function createRenderer(canvas, world, images, opts = {}) {
     ctx.font = '700 22px system-ui, sans-serif';
     ctx.textAlign = 'center';
     for (const f of floaters) {
-      ctx.globalAlpha = Math.max(0, 1 - f.age / 900);
-      ctx.fillStyle = '#ffe9a8';
+      ctx.globalAlpha = Math.min(1, Math.max(0, (f.life - f.age) / 350));
+      ctx.fillStyle = f.color;
+      ctx.font = `${f.gold ? 800 : 700} ${f.gold ? 26 : 22}px system-ui, sans-serif`;
       ctx.strokeStyle = 'rgba(0,0,0,0.7)';
       ctx.lineWidth = 4;
-      const y = f.y - f.age * 0.05;
+      const y = f.y - (reducedMotion ? 0 : f.age * 0.05);
       ctx.strokeText(f.text, f.x, y);
       ctx.fillText(f.text, f.x, y);
     }
     ctx.restore();
-    for (let i = floaters.length - 1; i >= 0; i--) if (floaters[i].age > 900) floaters.splice(i, 1);
+    for (let i = floaters.length - 1; i >= 0; i--) if (floaters[i].age > floaters[i].life) floaters.splice(i, 1);
   }
 
   /* --------------------------------- HUD --------------------------------- */
@@ -852,15 +876,22 @@ export function createRenderer(canvas, world, images, opts = {}) {
         ctx.fillText(txt, cx, canvas.height * 0.42);
       }
     }
-    if (world.match && world.time < world.match.spawnOpenMs) {
+    if (world.match && world.time < world.match.spawnOpenMs + 1800) {
+      const left = Math.ceil((world.match.spawnOpenMs - world.time) / 1000);
+      const beat = Math.max(0, left);
+      if (introBeat !== beat) { play(beat === 0 ? 'start' : 'tick'); introBeat = beat; }
       ctx.textAlign = 'center';
-      ctx.font = `700 ${26 * u}px system-ui, sans-serif`;
+      ctx.font = `800 ${32 * u}px system-ui, sans-serif`;
       ctx.fillStyle = COLORS.gold;
-      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.8)';
       ctx.lineWidth = 5;
-      const txt = `Sortie dans ${Math.ceil((world.match.spawnOpenMs - world.time) / 1000)} s`;
+      const txt = left > 0 ? `Préparez-vous · ${left}` : 'En avant !';
       ctx.strokeText(txt, cx, canvas.height * 0.3);
       ctx.fillText(txt, cx, canvas.height * 0.3);
+      ctx.font = `600 ${16 * u}px system-ui, sans-serif`;
+      const tip = left > 0 ? 'Choisissez votre objet de départ dans la boutique' : 'Avancez avec vos sbires pour gagner la vision';
+      ctx.strokeText(tip, cx, canvas.height * 0.3 + 30 * u);
+      ctx.fillText(tip, cx, canvas.height * 0.3 + 30 * u);
     }
     if (world.match) drawMinimap(localTeam, u);
     if (world.match) {
@@ -1049,7 +1080,8 @@ export function createRenderer(canvas, world, images, opts = {}) {
       L.points.forEach(([x, y], i) => (i ? ctx.lineTo(x * sx, y * sx) : ctx.moveTo(x * sx, y * sx)));
       ctx.stroke();
     }
-    const seen = (e) => e.team === localTeam || world.units.some((a) => !a.dead && a.team === localTeam && Math.hypot(a.x - e.x, a.y - e.y) < VISION);
+    ctx.drawImage(fog, 0, 0, mw, mh);
+    const seen = (e) => unitVisibleTo(world, e, localTeam);
     for (const e of world.units) {
       if (e.dead || !seen(e)) continue;
       const c = teamColor(e.team, localTeam);
@@ -1100,6 +1132,55 @@ export function createRenderer(canvas, world, images, opts = {}) {
     ctx.restore();
   }
 
+  // Un seul masque pour le terrain et la mini-carte ; bord doux à l'intérieur de la portée réelle.
+  function updateFog(team) {
+    if (!matchMode) return;
+    fogCtx.globalCompositeOperation = 'source-over';
+    fogCtx.clearRect(0, 0, fog.width, fog.height);
+    fogCtx.fillStyle = 'rgba(3,8,18,0.86)';
+    fogCtx.fillRect(0, 0, fog.width, fog.height);
+    fogCtx.globalCompositeOperation = 'destination-out';
+    for (const source of visionSources(world, team)) {
+      const x = source.x / 4, y = source.y / 4, r = VISION_RADII[source.kind] / 4;
+      const gradient = fogCtx.createRadialGradient(x, y, r * 0.8, x, y, r);
+      gradient.addColorStop(0, 'rgba(0,0,0,1)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      fogCtx.fillStyle = gradient;
+      fogCtx.beginPath();
+      fogCtx.arc(x, y, r, 0, Math.PI * 2);
+      fogCtx.fill();
+    }
+    fogCtx.globalCompositeOperation = 'source-over';
+  }
+
+  function drawSparks(dtMs) {
+    ctx.save();
+    for (const p of sparks) {
+      p.age += dtMs;
+      const t = p.age / 1000;
+      ctx.globalAlpha = Math.max(0, 1 - p.age / p.life);
+      ctx.strokeStyle = p.coin ? '#fff0b0' : '#fff';
+      ctx.fillStyle = COLORS.gold;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (p.coin) {
+        const x = p.x + p.vx * t, y = p.y + p.vy * t + 95 * t * t;
+        ctx.ellipse(x, y, Math.max(1.5, Math.abs(Math.cos(t * 16 + p.phase)) * 6), 8, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.move) {
+        ctx.strokeStyle = COLORS.ally;
+        ctx.ellipse(p.x, p.y, 12 + p.age * 0.04, 6 + p.age * 0.02, 0, 0, Math.PI * 2);
+      } else {
+        const r = 8 + p.age * 0.12;
+        ctx.moveTo(p.x - r, p.y); ctx.lineTo(p.x + r, p.y);
+        ctx.moveTo(p.x, p.y - r); ctx.lineTo(p.x, p.y + r);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+    for (let i = sparks.length - 1; i >= 0; i--) if (sparks[i].age >= sparks[i].life) sparks.splice(i, 1);
+  }
+
   /* -------------------------------- dessin -------------------------------- */
 
   function draw(dtMs, localId, aim) {
@@ -1113,23 +1194,27 @@ export function createRenderer(canvas, world, images, opts = {}) {
     ctx.beginPath();
     ctx.rect(0, 0, world.map.width, world.map.height);
     ctx.clip();
+    updateFog(localTeamOf());
     drawGround();
     if (world.match) drawJungle();
-    for (const z of world.zones) zoneImageBack(z);
+    if (matchMode) ctx.drawImage(fog, 0, 0, world.map.width, world.map.height);
+    for (const z of world.zones) if (z.team === localTeamOf() || pointVisibleTo(world, localTeamOf(), z.x, z.y)) zoneImageBack(z);
 
     const local = getUnit(world, localId);
     const localTeam = local ? local.team : 'ally';
     drawAim(local, aim);
-    for (const h of world.heroes) drawHeroOverlays(h, h.id === localId);
+    for (const h of world.heroes) if (visible(h)) drawHeroOverlays(h, h.id === localId);
     const sorted = [...world.units].sort((a, b) => a.y - b.y);
     for (const e of sorted) {
+      if (!visible(e)) continue;
       if (e.kind === 'hero') drawHero(e, localTeam);
       else if (e.kind === 'minion' || e.kind === 'monster') drawCreature(e, localTeam);
       else drawStructure(e, localTeam);
     }
-    for (const z of world.zones) zoneImageFront(z);
-    for (const p of world.projectiles) drawProjectile(p, localTeam);
-    for (const e of world.units) drawBars(e, localTeam);
+    for (const z of world.zones) if (z.team === localTeam || pointVisibleTo(world, localTeam, z.x, z.y)) zoneImageFront(z);
+    for (const p of world.projectiles) if (pointVisibleTo(world, localTeam, p.x, p.y)) drawProjectile(p, localTeam);
+    for (const e of world.units) if (visible(e)) drawBars(e, localTeam);
+    drawSparks(dtMs);
     drawFloaters(dtMs);
     ctx.restore();
     drawHud(localId);

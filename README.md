@@ -47,7 +47,7 @@ Commandes au clavier-souris : clic sol = se déplacer · clic ennemi, sbire, mon
 
 ## Caméra hybride (lot 1 du plan d'amélioration)
 
-La caméra suit le héros avec un **lissage** (constante de temps 70 ms, 28 ms pendant un dash, un glissé ou un écart de plus de 220 unités) : retard mesuré inférieur à 40 unités en course à 336 px/s, saut direct après une réapparition ou un rappel. Elle reste dans les limites de la carte. Tous les réglages sont dans `CAMERA` (`src/render/camera.js`, module pur et testé). Elle ne touche ni la simulation ni la visibilité des unités ; le jeu n'a d'ailleurs pas de brouillard de guerre à ce jour (seul le drapeau `invisible` existe).
+La caméra suit le héros avec un **lissage** (constante de temps 70 ms, 28 ms pendant un dash, un glissé ou un écart de plus de 220 unités) : retard mesuré inférieur à 40 unités en course à 336 px/s, saut direct après une réapparition ou un rappel. Elle reste dans les limites de la carte. Tous les réglages sont dans `CAMERA` (`src/render/camera.js`, module pur et testé). Elle ne touche ni la simulation ni la visibilité des unités : le brouillard de guerre partagé (voir « Vision et retours de jeu ») s'applique tel quel à toute la zone explorée. Explorer la carte ne révèle donc aucune unité cachée, et ne permet pas de les cibler.
 
 | Action | Tactile | PC |
 | --- | --- | --- |
@@ -58,6 +58,14 @@ La caméra suit le héros avec un **lissage** (constante de temps 70 ms, 28 ms p
 | Décalage vers la visée | automatique pendant la visée d'une compétence (30 % du vecteur, plafonné à 170) | idem |
 
 Conflits traités : un **appui** sur un ennemi (moins de 10 px de mouvement) le verrouille toujours, mais au relâchement du doigt et non plus à la pose (quelques dizaines de millisecondes de plus) ; un **glissé** ne donne aucun ordre, même s'il démarre sur un ennemi ; le joystick et un glissé de caméra se font en même temps avec deux doigts ; les zones du HUD dessiné (score) réagissent toujours à la pose. Le bouton ◎ est surligné en or quand la caméra est décalée, avec un fond plus chaud en mode libre.
+
+## Vision et retours de jeu
+
+En 3v3, la jungle et le territoire adverse sont assombris hors de la vision de votre équipe. Héros, sbires, tours et noyau vivants partagent leur vision (rayons : 750, 370, 560 et 600 unités). Les zones redeviennent sombres quand les alliés s'éloignent ; les tours détruites ne fournissent plus de vision. Détruire une tour permet d'avancer avec les sbires pour révéler la suite de la ligne, sans révélation permanente. Le relief reste lisible sous le brouillard.
+
+La vue principale, la mini-carte, les barres de vie, les effets et le ciblage utilisent la même règle. Les ennemis et monstres cachés ne sont pas sélectionnables au clic ni par l'assistance d'attaque. Un verrou se perd lorsque la cible sort de la vision partagée. Les timers des camps ne s'affichent que sous vision. Le duel conserve sa visibilité complète.
+
+Chaque gain ponctuel d'or (dernier coup, présence, objectif, élimination, assistance et revente) produit un chiffre doré flottant, des pièces animées et un tintement local. Les gains rapprochés s'empilent. Le revenu passif fait seulement monter le compteur, sans son ni particules. Les impacts ont un éclat bref et les attaques du joueur un son discret ; un cercle turquoise confirme les ordres de déplacement. Le départ propose un compte à rebours, une invitation à acheter le starter, puis « En avant ! » et un signal sonore à l'ouverture des bases. Le réglage Son coupe ces sons ; la préférence de mouvement réduit supprime pièces, éclats, cercles et déplacement des chiffres. Les effets se figent pendant la pause.
 
 ## Bouton Attaque (ciblage automatique)
 

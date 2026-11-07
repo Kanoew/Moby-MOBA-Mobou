@@ -100,6 +100,8 @@ test('attaque : trop loin (au-delà de la distance de poursuite), le héros ne b
   const a = getUnit(w, 'a');
   place(a, 1000, 450);
   place(getUnit(w, 'b'), 1000 + baseMatch.attackAssist.maxChase + 200, 450);
+  const scout = w.towers.find((t) => t.team === 'ally');
+  place(scout, getUnit(w, 'b').x, getUnit(w, 'b').y); // vision partagée, poursuite toujours trop longue
   assert.equal(issueCommand(w, 'a', { type: 'attack', targetId: 'b' }), true);
   run(w, 1000);
   assert.equal(a.x, 1000);

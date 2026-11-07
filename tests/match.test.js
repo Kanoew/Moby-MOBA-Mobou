@@ -78,6 +78,7 @@ test('invulnérabilité : intérieure après la chute de l\'extérieure ; noyau 
   const outer = tower(w, 'enemy', 'top', 'outer');
   const inner = tower(w, 'enemy', 'top', 'inner');
   const core = getUnit(w, 'core-enemy');
+  a.x = inner.x; a.y = inner.y; // la protection se teste sur des structures dans la vision
   assert.equal(isTargetable(w, a, outer), true);
   assert.equal(isTargetable(w, a, inner), false);
   assert.equal(isTargetable(w, a, core), false);
@@ -87,6 +88,7 @@ test('invulnérabilité : intérieure après la chute de l\'extérieure ; noyau 
   assert.equal(isTargetable(w, a, core), false, 'une seule tour tombée ne suffit pas');
   inner.dead = true;
   assert.equal(isVulnerable(w, core), true, 'deux tours tombées sur la même ligne');
+  a.x = core.x; a.y = core.y;
   assert.equal(isTargetable(w, a, core), true);
 });
 

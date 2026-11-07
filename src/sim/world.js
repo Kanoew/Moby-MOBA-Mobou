@@ -4,6 +4,7 @@
 // Deux modes :
 //  - duel  (sans `match`) : deux héros, la mort d'un héros termine la partie (lot 1).
 //  - match (avec `match`) : lignes, tours, noyaux, vagues, mort et réapparition (lot 2).
+import { unitVisibleTo } from './vision.js';
 import { findPath } from './path.js';
 import { initProgression, awardXp, spendPoint, tickPassiveXp } from './progression.js';
 import { startCast, canQueueCast, updateCast, updateZones, updateStatuses, effectiveSpeed, skillHitBonus, skillHeroHit } from './abilities.js';
@@ -196,7 +197,8 @@ export function getUnit(world, id) {
 }
 export const getHero = getUnit;
 
-export function isVisibleTo(u, team) {
+export function isVisibleTo(u, team, world) {
+  if (world) return unitVisibleTo(world, u, team);
   return u.team === team || !u.invisible;
 }
 
@@ -219,7 +221,7 @@ export function isVulnerable(world, u) {
 }
 
 export function isTargetable(world, attacker, t) {
-  return !!t && !t.dead && t.team !== attacker.team && isVisibleTo(t, attacker.team) && isVulnerable(world, t);
+  return !!t && !t.dead && t.team !== attacker.team && isVisibleTo(t, attacker.team, world) && isVulnerable(world, t);
 }
 
 /** Distance entre les bords des deux cercles (portée mesurée de bord à bord). */
@@ -327,6 +329,7 @@ export function issueCommand(world, heroId, cmd) {
       hero.stuckMs = 0;
       cancelRecall(world, hero, 'move');
       cancelSwing(world, hero, 'move');
+      emit(world, { type: 'move_order', heroId: hero.id, x: hero.moveTarget.x, y: hero.moveTarget.y });
       return true;
     }
     case 'stop':
@@ -427,7 +430,7 @@ function updateHero(world, hero, dtMs) {
   if (hero.targetId !== null) {
     const t = getUnit(world, hero.targetId);
     if (!isTargetable(world, hero, t)) {
-      const reason = !t || t.dead ? 'dead' : t.invisible ? 'invisible' : 'invulnerable';
+      const reason = !t || t.dead ? 'dead' : !isVisibleTo(t, hero.team, world) ? 'invisible' : 'invulnerable';
       emit(world, { type: 'target_lost', heroId: hero.id, targetId: hero.targetId, reason });
       hero.targetId = null;
       hero.approach = false;
