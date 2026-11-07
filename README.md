@@ -25,6 +25,14 @@ Commandes au clavier-souris : clic sol = se déplacer · clic ennemi, sbire, mon
 - **Version** : numéro unique dans `version.json`, appliqué à tous les fichiers chargés (`?v=…`) par une carte d'import générée. `npm run bump` avant chaque publication (`-- minor`, `-- major`, `-- sync`). Le jeu se recharge de lui-même si le serveur annonce une version plus récente. Détails dans `docs/ui-guide.md`.
 - **Habillage** : `docs/ui-guide.md` liste ce qui est fait, ce qui reste (images, HUD du canvas) et les identifiants à conserver.
 
+## Vision et retours de jeu
+
+En 3v3, la jungle et le territoire adverse sont assombris hors de la vision de votre équipe. Héros, sbires, tours et noyau vivants partagent leur vision (rayons : 750, 370, 560 et 600 unités). Les zones redeviennent sombres quand les alliés s'éloignent ; les tours détruites ne fournissent plus de vision. Détruire une tour permet d'avancer avec les sbires pour révéler la suite de la ligne, sans révélation permanente. Le relief reste lisible sous le brouillard.
+
+La vue principale, la mini-carte, les barres de vie, les effets et le ciblage utilisent la même règle. Les ennemis et monstres cachés ne sont pas sélectionnables au clic ni par l'assistance d'attaque. Un verrou se perd lorsque la cible sort de la vision partagée. Les timers des camps ne s'affichent que sous vision. Le duel conserve sa visibilité complète.
+
+Chaque gain d'or (dernier coup, élimination, assistance et revente) produit un chiffre doré flottant, des pièces animées et un tintement local. Les gains rapprochés s'empilent. Les impacts ont un éclat bref et les attaques du joueur un son discret ; un cercle turquoise confirme les ordres de déplacement. Le départ propose un compte à rebours, une invitation à acheter le starter, puis « En avant ! » et un signal sonore à l'ouverture des bases. Le réglage Son coupe ces sons ; la préférence de mouvement réduit supprime pièces, éclats, cercles et déplacement des chiffres. Les effets se figent pendant la pause.
+
 ## Bouton Attaque (ciblage automatique)
 
 Le bouton (et la touche `A`) ne demande plus de cible : il choisit lui-même et **marche vers la cible** jusqu'à la portée, puis les autos partent.

@@ -19,7 +19,11 @@ export function setMuted(m) {
 
 /** À appeler dans un geste utilisateur (les navigateurs refusent de produire du son avant). */
 export function unlockAudio() {
-  if (ctx || typeof AudioContext === 'undefined') return;
+  if (ctx) {
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return;
+  }
+  if (typeof AudioContext === 'undefined') return;
   try {
     ctx = new AudioContext();
   } catch {
@@ -42,6 +46,10 @@ function tone(freq, start, dur, type = 'sine', gain = 0.06) {
 }
 
 const SOUNDS = {
+  gold: () => { tone(1320, 0, 0.06, 'triangle', 0.035); tone(1760, 0.045, 0.13, 'sine', 0.025); },
+  tick: () => tone(440, 0, 0.06, 'sine', 0.025),
+  start: () => { tone(523, 0, 0.12); tone(659, 0.1, 0.12); tone(1046, 0.2, 0.3); },
+  hit: () => tone(110, 0, 0.05, 'triangle', 0.025),
   buy: () => { tone(660, 0, 0.09); tone(990, 0.08, 0.14); },
   sell: () => { tone(880, 0, 0.08, 'triangle'); tone(587, 0.07, 0.12, 'triangle'); },
   deny: () => tone(150, 0, 0.16, 'square', 0.04),
@@ -53,7 +61,7 @@ const SOUNDS = {
 export function play(name) {
   if (muted || !ctx || !SOUNDS[name]) return;
   try {
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     SOUNDS[name]();
   } catch {
     /* le son est un confort, jamais une erreur */

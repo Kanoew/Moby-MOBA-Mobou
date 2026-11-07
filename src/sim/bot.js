@@ -1,6 +1,7 @@
 // Bots : n'utilisent que issueCommand, exactement comme le joueur.
 // Duel : approche l'ennemi le plus proche. Match : tient une ligne, suit ses sbires, évite les tours
 // sans couverture de sbires, se replie à bas PV et revient en jeu après la réapparition.
+import { unitVisibleTo } from './vision.js';
 import { edgeDistance, getUnit, isTargetable, isVulnerable, issueCommand, otherTeam, TEAM_ALLY } from './world.js';
 import { canCast } from './abilities.js';
 import { checkBuy, inShopZone, itemDef, sellValue } from './shop.js';
@@ -208,7 +209,7 @@ function pushObjective(world, hero) {
 
 /** Combat à nombre inégal : on évite d'aller seul contre plusieurs, sauf pour achever un héros faible. */
 function outnumbered(world, hero, e) {
-  const foes = world.heroes.filter((h) => h.team !== hero.team && !h.dead && Math.hypot(h.x - e.x, h.y - e.y) < 700).length;
+  const foes = world.heroes.filter((h) => h.team !== hero.team && !h.dead && unitVisibleTo(world, h, hero.team) && Math.hypot(h.x - e.x, h.y - e.y) < 700).length;
   const mine = world.heroes.filter((h) => h.team === hero.team && !h.dead && Math.hypot(h.x - e.x, h.y - e.y) < 700).length + 1;
   return foes > mine + 0;
 }
@@ -221,7 +222,7 @@ function laneMinions(world, hero, lane) {
 function threatScore(world, hero, lane) {
   let threat = 0;
   for (const e of world.units) {
-    if (e.dead || e.team === hero.team || e.team === 'neutral' || (e.kind !== 'minion' && e.kind !== 'hero')) continue;
+    if (e.dead || e.team === hero.team || e.team === 'neutral' || !unitVisibleTo(world, e, hero.team) || (e.kind !== 'minion' && e.kind !== 'hero')) continue;
     if (e.kind === 'minion' && e.lane !== lane) continue;
     const reach = e.kind === 'hero' ? 900 : 700;
     const near = world.towers.find((t) => t.team === hero.team && t.lane === lane && !t.dead && Math.hypot(t.x - e.x, t.y - e.y) < reach);
@@ -331,7 +332,7 @@ function chooseBonus(world, hero) {
 
 function foesWithin(world, hero, r, kinds = ['hero', 'minion']) {
   return world.units.filter(
-    (e) => !e.dead && e.team !== hero.team && e.team !== 'neutral' && kinds.includes(e.kind) && Math.hypot(e.x - hero.x, e.y - hero.y) <= r,
+    (e) => !e.dead && e.team !== hero.team && e.team !== 'neutral' && unitVisibleTo(world, e, hero.team) && kinds.includes(e.kind) && Math.hypot(e.x - hero.x, e.y - hero.y) <= r,
   );
 }
 
@@ -418,7 +419,7 @@ function objectiveFor(world, hero) {
   if (boss && !boss.dead && (hero.lane === null || hero.lane === 'bottom') && world.time >= (hero.bossAvoidUntil || 0)) {
     const mates = world.heroes.filter((h) => h.team === hero.team && !h.dead && (h.lane === null || h.lane === 'bottom'));
     const ready = mates.length >= 2 && mates.every((h) => h.hp / h.maxHp >= 0.75 && h.level >= 4);
-    const rivals = world.heroes.filter((h) => h.team !== hero.team && !h.dead && Math.hypot(h.x - boss.x, h.y - boss.y) < 800).length;
+    const rivals = world.heroes.filter((h) => h.team !== hero.team && !h.dead && unitVisibleTo(world, h, hero.team) && Math.hypot(h.x - boss.x, h.y - boss.y) < 800).length;
     if (ready && rivals <= 1) {
       // Le duo se rassemble d'abord à un point de rendez-vous, puis engage ensemble : jamais un héros seul contre le Cerbère.
       const stage = { x: boss.x + (hero.team === TEAM_ALLY ? -520 : 520), y: boss.y };

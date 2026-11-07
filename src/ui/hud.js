@@ -295,6 +295,7 @@ export function createHud({ issue, getGame, localId, heroDefs }) {
         toast(ev.reason);
         break;
       case 'gold':
+        play('gold');
         els.goldGain.textContent = `+${ev.amount}`;
         els.goldGain.classList.remove('pop');
         void els.goldGain.offsetWidth;

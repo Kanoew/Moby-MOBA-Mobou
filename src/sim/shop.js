@@ -29,7 +29,7 @@ export function startingGold(match) {
 export function awardGold(world, hero, amount) {
   if (!hero || hero.kind !== 'hero' || !amount || !world.match) return;
   hero.gold += amount;
-  emit(world, { type: 'gold', heroId: hero.id, amount });
+  emit(world, { type: 'gold', heroId: hero.id, amount, x: hero.x, y: hero.y });
 }
 
 /** Qu'est-ce qui empêche cet achat ? Retourne { ok, reason } ; `reason` est le libellé affiché au joueur. */
@@ -80,7 +80,7 @@ export function sellItem(world, hero, itemId) {
   const it = itemDef(world, itemId);
   const gain = sellValue(world, it);
   hero.items[hero.items.indexOf(itemId)] = null;
-  hero.gold += gain;
+  awardGold(world, hero, gain);
   recomputeItems(world, hero);
   emit(world, { type: 'item_sold', heroId: hero.id, itemId, gain });
   return r;
