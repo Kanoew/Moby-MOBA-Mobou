@@ -783,21 +783,36 @@ export function createRenderer(canvas, world, images, opts = {}) {
 
     // Bas : PV du joueur, ou compte à rebours de réapparition.
     if (local) {
-      const bw = (opts.touch ? 300 : 360) * u;
-      const bx = cx - bw / 2;
-      const by = canvas.height - 46 * u;
-      panel(bx - 10 * u, by - (opts.touch ? 29 : 14) * u, bw + 20 * u, (opts.touch ? 57 : 42) * u);
-      ctx.fillStyle = '#10151f';
-      ctx.fillRect(bx, by, bw, 14 * u);
-      ctx.fillStyle = COLORS.ally;
-      ctx.fillRect(bx, by, bw * (local.hp / local.maxHp), 14 * u);
-      ctx.textAlign = 'center';
-      ctx.fillStyle = COLORS.ink;
-      ctx.font = `600 ${Math.max(12 * lastView.dpr, 14 * u)}px system-ui, sans-serif`;
       if (opts.touch) {
-        ctx.fillText(`${local.def.name} · Niv ${local.level || 1}`, cx, by - 9 * u);
-        ctx.fillText(`${Math.ceil(local.hp)} / ${local.maxHp}`, cx, by + 14 * u);
+        // Dimensions en pixels CSS : texte et jauge ont chacun leur ligne, quel que soit le DPR.
+        const px = lastView.dpr;
+        const bw = 200 * px;
+        const bx = cx - bw / 2;
+        const top = canvas.height - 74 * px;
+        panel(bx, top, bw, 64 * px);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.font = `600 ${12 * px}px system-ui, sans-serif`;
+        ctx.fillStyle = COLORS.ink;
+        ctx.fillText(`${local.def.name} · Niv ${local.level || 1}`, cx, top + 8 * px);
+        ctx.fillText(`${Math.ceil(local.hp)} / ${local.maxHp}`, cx, top + 27 * px);
+        ctx.fillStyle = '#10151f';
+        ctx.fillRect(bx + 10 * px, top + 48 * px, bw - 20 * px, 8 * px);
+        ctx.fillStyle = COLORS.ally;
+        ctx.fillRect(bx + 10 * px, top + 48 * px, (bw - 20 * px) * Math.max(0, Math.min(1, local.hp / local.maxHp)), 8 * px);
+        ctx.textBaseline = 'alphabetic';
       } else {
+        const bw = 360 * u;
+        const bx = cx - bw / 2;
+        const by = canvas.height - 46 * u;
+        panel(bx - 10 * u, by - 14 * u, bw + 20 * u, 42 * u);
+        ctx.fillStyle = '#10151f';
+        ctx.fillRect(bx, by, bw, 14 * u);
+        ctx.fillStyle = COLORS.ally;
+        ctx.fillRect(bx, by, bw * (local.hp / local.maxHp), 14 * u);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = COLORS.ink;
+        ctx.font = `600 ${Math.max(12 * lastView.dpr, 14 * u)}px system-ui, sans-serif`;
         ctx.fillText(`${local.def.name} · Niv ${local.level || 1}  ${Math.ceil(local.hp)} / ${local.maxHp}   ·   ${local.kills} / ${local.deaths} / ${local.assists}`, cx, by + 14 * u);
       }
       if (local.dead && local.respawnAt !== null) {

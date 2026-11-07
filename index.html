@@ -14,32 +14,32 @@
   <link rel="icon" href="assets/ui/icon.svg" type="image/svg+xml">
   <!-- Bloc généré par `npm run bump` : version, carte d'import des modules, manifeste, feuille de style. Ne pas éditer à la main. -->
   <!--version:start-->
-  <script>window.APP_VERSION = "0.7.0";</script>
+  <script>window.APP_VERSION = "0.7.1";</script>
   <script type="importmap">{
   "imports": {
-    "./src/input/pointer.js": "./src/input/pointer.js?v=0.7.0",
-    "./src/main.js": "./src/main.js?v=0.7.0",
-    "./src/render/animator.js": "./src/render/animator.js?v=0.7.0",
-    "./src/render/renderer.js": "./src/render/renderer.js?v=0.7.0",
-    "./src/sim/abilities.js": "./src/sim/abilities.js?v=0.7.0",
-    "./src/sim/bot.js": "./src/sim/bot.js?v=0.7.0",
-    "./src/sim/jungle.js": "./src/sim/jungle.js?v=0.7.0",
-    "./src/sim/path.js": "./src/sim/path.js?v=0.7.0",
-    "./src/sim/progression.js": "./src/sim/progression.js?v=0.7.0",
-    "./src/sim/recall.js": "./src/sim/recall.js?v=0.7.0",
-    "./src/sim/shop.js": "./src/sim/shop.js?v=0.7.0",
-    "./src/sim/world.js": "./src/sim/world.js?v=0.7.0",
-    "./src/ui/hud.js": "./src/ui/hud.js?v=0.7.0",
-    "./src/ui/lobby.js": "./src/ui/lobby.js?v=0.7.0",
-    "./src/ui/profile.js": "./src/ui/profile.js?v=0.7.0",
-    "./src/ui/scoreboard.js": "./src/ui/scoreboard.js?v=0.7.0",
-    "./src/ui/screens.js": "./src/ui/screens.js?v=0.7.0",
-    "./src/ui/sound.js": "./src/ui/sound.js?v=0.7.0",
-    "./src/ui/touch.js": "./src/ui/touch.js?v=0.7.0"
+    "./src/input/pointer.js": "./src/input/pointer.js?v=0.7.1",
+    "./src/main.js": "./src/main.js?v=0.7.1",
+    "./src/render/animator.js": "./src/render/animator.js?v=0.7.1",
+    "./src/render/renderer.js": "./src/render/renderer.js?v=0.7.1",
+    "./src/sim/abilities.js": "./src/sim/abilities.js?v=0.7.1",
+    "./src/sim/bot.js": "./src/sim/bot.js?v=0.7.1",
+    "./src/sim/jungle.js": "./src/sim/jungle.js?v=0.7.1",
+    "./src/sim/path.js": "./src/sim/path.js?v=0.7.1",
+    "./src/sim/progression.js": "./src/sim/progression.js?v=0.7.1",
+    "./src/sim/recall.js": "./src/sim/recall.js?v=0.7.1",
+    "./src/sim/shop.js": "./src/sim/shop.js?v=0.7.1",
+    "./src/sim/world.js": "./src/sim/world.js?v=0.7.1",
+    "./src/ui/hud.js": "./src/ui/hud.js?v=0.7.1",
+    "./src/ui/lobby.js": "./src/ui/lobby.js?v=0.7.1",
+    "./src/ui/profile.js": "./src/ui/profile.js?v=0.7.1",
+    "./src/ui/scoreboard.js": "./src/ui/scoreboard.js?v=0.7.1",
+    "./src/ui/screens.js": "./src/ui/screens.js?v=0.7.1",
+    "./src/ui/sound.js": "./src/ui/sound.js?v=0.7.1",
+    "./src/ui/touch.js": "./src/ui/touch.js?v=0.7.1"
   }
 }</script>
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.0">
-  <link rel="stylesheet" href="styles/ui.css?v=0.7.0">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.1">
+  <link rel="stylesheet" href="styles/ui.css?v=0.7.1">
   <!--version:end-->
 </head>
 <body>
@@ -138,6 +138,7 @@
       </div>
 
       <!-- Lot 4 : boutons de partie, inventaire, boutique, scores. Identifiants listés dans docs/ui-guide.md. -->
+      <button id="target-toggle" class="hud-btn" type="button" aria-controls="target-controls" aria-expanded="false">Ciblage ▾</button>
       <div id="target-controls" role="group" aria-label="Ciblage des attaques">
         <button class="hud-btn" data-target-mode="nearest" title="Cible proche (A)">Attaque <kbd>A</kbd></button>
         <button class="hud-btn" data-target-mode="farm" title="Sbires et monstres uniquement (C)"><img src="assets/items/lame-courte.png" alt="">Farm <kbd>C</kbd></button>
@@ -220,7 +221,7 @@
 
   <!-- Bloc généré par `npm run bump` : script d'entrée versionné. -->
   <!--entry:start-->
-  <script type="module" src="src/main.js?v=0.7.0"></script>
+  <script type="module" src="src/main.js?v=0.7.1"></script>
   <!--entry:end-->
 </body>
 </html>

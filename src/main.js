@@ -299,13 +299,25 @@ async function boot() {
   window.addEventListener('keyup', (e) => {
     if (e.key === 'Tab' && game) hud.showScores(false);
   });
+  const closeTargetMenu = () => {
+    $('#target-controls').classList.remove('open');
+    $('#target-toggle').setAttribute('aria-expanded', 'false');
+  };
+  $('#target-toggle').addEventListener('click', () => {
+    const open = $('#target-controls').classList.toggle('open');
+    $('#target-toggle').setAttribute('aria-expanded', String(open));
+  });
+  $('#stick-zone').addEventListener('pointerdown', closeTargetMenu);
+  $('#btn-pause').addEventListener('click', closeTargetMenu);
   document.querySelectorAll('[data-target-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       if (!game || game.paused || game.ended || game.world.over || me().dead || ui.screen() !== 'game' || isPortraitBlocked()) return;
       attackAction(game.world, me(), issue, (t) => hud.toast(t), button.dataset.targetMode);
+      closeTargetMenu();
     });
   });
   $('#btn-stop').addEventListener('click', () => {
+    closeTargetMenu();
     if (game && !game.paused && !game.ended && !game.world.over && !isPortraitBlocked()) issue({ type: 'stop' });
   });
   $('#btn-shop-open').addEventListener('click', () => game && hud.toggleShop());
