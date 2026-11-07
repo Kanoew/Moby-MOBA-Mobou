@@ -29,7 +29,8 @@ Commandes au clavier-souris : clic sol = se déplacer · clic ennemi, sbire, mon
 
 Le bouton (et la touche `A`) ne demande plus de cible : il choisit lui-même et **marche vers la cible** jusqu'à la portée, puis les autos partent.
 
-- Cible conservée si le verrou en cours est valide et à moins de `attackAssist.maxChase` (900 px) ; sinon : **héros ennemi d'abord**, puis sbire ou monstre, puis structure, dans le rayon `attackAssist.radius` (700 px).
+- Cible conservée seulement si elle est valide et à portée d’attaque ; sinon, ennemi le plus proche dans le rayon d’assistance (700 px), sans priorité automatique aux héros.
+- Boutons et raccourcis dédiés : **A** proximité, **C** Farm (sbires/monstres), **V** héros, **X** structures, **S** stop. Un filtre ne bascule jamais vers une autre catégorie si aucune cible ne correspond.
 - Aucun ennemi dans le rayon : message « Aucun ennemi proche » et secousse du bouton, rien d'autre ne change.
 - La marche utilise le même chemin que les bots (A* sur la grille, lissage) : elle contourne les obstacles et se recalcule toutes les 300 ms. Elle abandonne si la cible s'éloigne au-delà de `maxChase` ou si le héros reste bloqué 0,5 s.
 - Un déplacement, le joystick, `S`, un nouveau verrou simple, un rappel ou la mort annulent l'approche (le verrou simple reste « sans poursuite », comme le cahier §2).
