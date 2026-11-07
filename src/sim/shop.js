@@ -7,7 +7,7 @@ import { emit } from './world.js';
 import { refreshStats } from './progression.js';
 
 export function emptyFx() {
-  return { autoFlat: 0, opener: null, duel: null, structure: 0, hp: 0, def: 0, talisman: null, armor: null, grimoire: 0, cdReduction: 0, ultBonus: 0, seal: 0 };
+  return { atk: 0, autoFlat: 0, opener: null, duel: null, structure: 0, hp: 0, def: 0, talisman: null, armor: null, grimoire: 0, cdReduction: 0, ultBonus: 0, seal: 0 };
 }
 
 export const catalog = (world) => (world.match && world.match.items ? world.match.items : null);
@@ -26,10 +26,43 @@ export function startingGold(match) {
   return match && match.items ? match.items.rules.startingGold : 0;
 }
 
-export function awardGold(world, hero, amount) {
+export function awardGold(world, hero, amount, source = 'kill') {
   if (!hero || hero.kind !== 'hero' || !amount || !world.match) return;
   hero.gold += amount;
-  emit(world, { type: 'gold', heroId: hero.id, amount, x: hero.x, y: hero.y });
+  emit(world, { type: 'gold', heroId: hero.id, amount, source, x: hero.x, y: hero.y });
+}
+
+/** Or du temps qui passe : chaque héros vivant en gagne `passivePerSec` par seconde, versé en petits paliers entiers. */
+export function tickPassiveGold(world, dtMs) {
+  const rate = world.match && world.match.economy.passivePerSec;
+  if (!rate) return;
+  for (const h of world.heroes) {
+    if (h.dead) continue;
+    h.goldBuffer = (h.goldBuffer || 0) + (rate * dtMs) / 1000;
+    if (h.goldBuffer >= 1) {
+      const n = Math.floor(h.goldBuffer);
+      h.goldBuffer -= n;
+      awardGold(world, h, n, 'passive');
+    }
+  }
+}
+
+/** Or d'objectif (tour, boss) : tous les héros de l'équipe, vivants ou non, en reçoivent la même somme. */
+export function awardTeamGold(world, team, amount, source) {
+  if (!amount || !world.match) return;
+  for (const h of world.heroes) if (h.team === team) awardGold(world, h, amount, source);
+}
+
+/**
+ * Or de présence : quand un sbire ou un monstre meurt sans qu'un héros porte le dernier coup (sbire allié, tour), les héros
+ * de l'équipe qui l'ont vu mourir de près en reçoivent une part. Présence en ligne = revenu, sans dernier coup obligatoire.
+ */
+export function awardLaneShare(world, team, x, y, gold) {
+  const eco = world.match && world.match.economy;
+  if (!eco || !eco.laneShareRatio || !gold) return;
+  const near = world.heroes.filter((h) => h.team === team && !h.dead && Math.hypot(h.x - x, h.y - y) <= eco.laneShareRadius);
+  const part = Math.round(gold * eco.laneShareRatio);
+  if (part > 0) for (const h of near) awardGold(world, h, part, 'lane');
 }
 
 /** Qu'est-ce qui empêche cet achat ? Retourne { ok, reason } ; `reason` est le libellé affiché au joueur. */
@@ -80,7 +113,7 @@ export function sellItem(world, hero, itemId) {
   const it = itemDef(world, itemId);
   const gain = sellValue(world, it);
   hero.items[hero.items.indexOf(itemId)] = null;
-  awardGold(world, hero, gain);
+  awardGold(world, hero, gain, 'sale');
   recomputeItems(world, hero);
   emit(world, { type: 'item_sold', heroId: hero.id, itemId, gain });
   return r;
@@ -92,6 +125,7 @@ export function recomputeItems(world, hero) {
   for (const id of hero.items) {
     const it = id ? itemDef(world, id) : null;
     if (!it) continue;
+    fx.atk += it.stats?.attack || 0;
     const e = it.effect;
     switch (e.type) {
       case 'basicAttackBonus': fx.autoFlat += e.flatDamage; break;

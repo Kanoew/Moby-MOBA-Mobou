@@ -1,7 +1,7 @@
 // Commandes tactiles : joystick flottant (apparaît sous le pouce), boutons d'action, visée au glissement.
 // Les fonctions pures (stickVector, aimFromDrag, nearestEnemyInRange) sont testées ; le reste branche le DOM.
 import { edgeDistance, isTargetable } from '../sim/world.js';
-import { canCast, cooldownLeft } from '../sim/abilities.js';
+import { canCast, canQueueCast, cooldownLeft } from '../sim/abilities.js';
 
 export const STICK_RADIUS = 56; // px : déplacement maximal du bouton par rapport à son point de départ
 export const STICK_DEAD = 0.18; // fraction du rayon sans effet (évite les micro-mouvements)
@@ -54,7 +54,7 @@ export function pickAttackTarget(world, hero, radius, mode = 'nearest') {
 /** Bouton et clavier partagent exactement le même ciblage. */
 export function attackAction(world, hero, issue, notify, mode = 'nearest') {
   const t = pickAttackTarget(world, hero, undefined, mode);
-  if (t) return issue({ type: 'attack', targetId: t.id });
+  if (t) return issue({ type: 'attack', targetId: t.id, targetMode: mode });
   if (notify) notify(mode === 'farm' ? 'Aucun sbire ou monstre proche' : mode === 'hero' ? 'Aucun héros ennemi proche' : mode === 'structure' ? 'Aucune structure attaquable proche' : 'Aucun ennemi proche');
   return false;
 }
@@ -151,7 +151,7 @@ export function bindTouchControls(els, api) {
     e.preventDefault();
     if (skillId !== null || !api.enabled()) return;
     const hero = api.hero();
-    if (!canCast(api.world(), hero, 'skill')) return;
+    if (!canCast(api.world(), hero, 'skill') && !canQueueCast(api.world(), hero, 'skill')) return;
     skillId = e.pointerId;
     skillStart = { x: e.clientX, y: e.clientY };
     capture(els.skill, e.pointerId);

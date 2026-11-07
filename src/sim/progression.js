@@ -28,7 +28,7 @@ function applyLevelStats(hero, match, keepRatio = true) {
   const maxHp = Math.round(hero.base.hp * (1 + g.hp * k)) + (hero.fx ? hero.fx.hp : 0);
   hero.hp = keepRatio ? Math.min(maxHp, hero.hp + (maxHp - hero.maxHp)) : maxHp;
   hero.maxHp = maxHp;
-  hero.atk = Math.round(hero.base.atk * (1 + g.atk * k));
+  hero.atk = Math.round(hero.base.atk * (1 + g.atk * k)) + (hero.fx?.atk || 0);
   hero.def_ = Math.round(hero.base.def * (1 + g.def * k)) + (hero.fx ? hero.fx.def : 0);
   hero.autoMult = 1 + match.progression.autoRankBonus[hero.rank.auto - 1];
 }

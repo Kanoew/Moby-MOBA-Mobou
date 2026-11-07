@@ -69,7 +69,7 @@ test('or : position figée pour les effets et revente créditée une seule fois'
   const before = hero.gold;
   awardGold(w, hero, 25);
   assert.equal(hero.gold, before + 25);
-  assert.deepEqual(w.events.at(-1), { type: 'gold', heroId: hero.id, amount: 25, x: hero.x, y: hero.y, t: 0 });
+  assert.deepEqual(w.events.at(-1), { type: 'gold', heroId: hero.id, amount: 25, source: 'kill', x: hero.x, y: hero.y, t: 0 });
   assert.equal(buyItem(w, hero, 'lame-courte').ok, true);
   const gold = hero.gold;
   assert.equal(sellItem(w, hero, 'lame-courte').ok, true);

@@ -7,8 +7,8 @@
 import { unitVisibleTo } from './vision.js';
 import { findPath } from './path.js';
 import { initProgression, awardXp, spendPoint, tickPassiveXp } from './progression.js';
-import { startCast, updateCast, updateZones, updateStatuses, effectiveSpeed, skillHitBonus, skillHeroHit } from './abilities.js';
-import { awardGold, buyItem, effectiveDefense, emptyFx, heroAutoDamage, onHeroDamaged, sellItem, startingGold } from './shop.js';
+import { startCast, canQueueCast, updateCast, updateZones, updateStatuses, effectiveSpeed, skillHitBonus, skillHeroHit } from './abilities.js';
+import { awardGold, awardLaneShare, awardTeamGold, tickPassiveGold, buyItem, effectiveDefense, emptyFx, heroAutoDamage, onHeroDamaged, sellItem, startingGold } from './shop.js';
 import { cancelRecall, startRecall, updateRecall } from './recall.js';
 import { initJungle, updateJungle, updateMonster, onMonsterKilled, chooseBonusLane, takeBonusWave } from './jungle.js';
 
@@ -257,7 +257,16 @@ export function cancelSwing(world, u, reason) {
 export function issueCommand(world, heroId, cmd) {
   const hero = getUnit(world, heroId);
   if (!hero || hero.kind !== 'hero' || hero.dead || world.over) return false;
-  if (hero.cast && (cmd.type === 'move' || cmd.type === 'steer')) return false; // un lancer en cours ne s'interrompt pas
+  if (['skill', 'ult'].includes(cmd.type) && canQueueCast(world, hero, cmd.type)) {
+    hero.bufferedCommand = { ...cmd };
+    return true;
+  }
+  if (hero.cast && ['move', 'steer', 'attack', 'target', 'stop'].includes(cmd.type)) {
+    // Dernière intention conservée : le lancer termine, puis la commande reprend.
+    hero.bufferedCommand = { ...cmd };
+    return true;
+  }
+  if (!hero.cast) hero.bufferedCommand = null;
 
   switch (cmd.type) {
     case 'skill':
@@ -273,6 +282,7 @@ export function issueCommand(world, heroId, cmd) {
       if (!isTargetable(world, hero, t)) return false;
       if (hero.targetId !== t.id) cancelSwing(world, hero, 'retarget');
       hero.targetId = t.id;
+      hero.attackMode = cmd.targetMode || 'nearest';
       hero.approach = true;
       hero.apPath = null;
       hero.moveTarget = null;
@@ -295,6 +305,7 @@ export function issueCommand(world, heroId, cmd) {
         hero.steer = null;
         return true;
       }
+      hero.attackMode = null;
       hero.steer = { x: cmd.x / len, y: cmd.y / len };
       hero.approach = false;
       cancelRecall(world, hero, 'move');
@@ -308,6 +319,7 @@ export function issueCommand(world, heroId, cmd) {
     case 'choose_bonus_lane':
       return chooseBonusLane(world, heroId, cmd.lane);
     case 'move': {
+      hero.attackMode = null;
       const x = Math.min(world.map.width - hero.radius, Math.max(hero.radius, cmd.x));
       const y = Math.min(world.map.height - hero.radius, Math.max(hero.radius, cmd.y));
       hero.path = findPath(world.map, hero.radius, { x: hero.x, y: hero.y }, { x, y });
@@ -321,12 +333,16 @@ export function issueCommand(world, heroId, cmd) {
       return true;
     }
     case 'stop':
+      hero.attackMode = null;
+      hero.targetId = null;
+      cancelSwing(world, hero, 'stop');
       hero.moveTarget = null;
       hero.steer = null;
       hero.approach = false;
       hero.path = [];
       return true;
     case 'target': {
+      hero.attackMode = null;
       const t = getUnit(world, cmd.targetId);
       if (!isTargetable(world, hero, t)) return false;
       if (hero.targetId !== t.id) cancelSwing(world, hero, 'retarget');
@@ -337,6 +353,7 @@ export function issueCommand(world, heroId, cmd) {
       return true;
     }
     case 'clear_target':
+      hero.attackMode = null;
       hero.targetId = null;
       hero.approach = false;
       cancelSwing(world, hero, 'clear_target');
@@ -372,7 +389,10 @@ export function step(world, dtMs) {
     else if (u.kind === 'tower') updateTower(world, u, dtMs);
     else if (u.kind === 'monster') updateMonster(world, u, dtMs);
   }
-  if (world.match) tickPassiveXp(world, dtMs);
+  if (world.match) {
+    tickPassiveXp(world, dtMs);
+    tickPassiveGold(world, dtMs);
+  }
   updateProjectiles(world, dtMs);
   updateZones(world, dtMs);
   updateStatuses(world);
@@ -400,6 +420,8 @@ function endByTime(world) {
 function updateHero(world, hero, dtMs) {
   hero.walking = false;
   if (hero.dead) {
+    hero.bufferedCommand = null;
+    hero.attackMode = null;
     if (hero.respawnAt !== null && world.time >= hero.respawnAt) respawnHero(world, hero);
     return;
   }
@@ -419,12 +441,36 @@ function updateHero(world, hero, dtMs) {
   // Un lancer de compétence occupe le héros jusqu'à la fin de son animation.
   if (hero.cast) {
     updateCast(world, hero, dtMs);
+    if (!hero.cast && hero.bufferedCommand) {
+      const command = hero.bufferedCommand;
+      hero.bufferedCommand = null;
+      issueCommand(world, hero.id, command);
+    }
     return;
   }
   // Rappel : danse sur place, autos suspendues.
   if (hero.recall) {
     updateRecall(world, hero, dtMs);
     return;
+  }
+
+  // Après une élimination, enchaîner seulement sur une cible déjà à portée.
+  // Aucun départ automatique vers un héros éloigné ou hors du filtre choisi.
+  if (hero.attackMode && hero.targetId === null && !hero.steer && !hero.moveTarget) {
+    const mode = hero.attackMode;
+    const candidates = world.units.filter((u) => isTargetable(world, hero, u)
+      && edgeDistance(hero, u) <= hero.def.auto.range
+      && (mode === 'farm' ? ['minion', 'monster'].includes(u.kind)
+        : mode === 'hero' ? u.kind === 'hero'
+        : mode === 'structure' ? ['tower', 'core'].includes(u.kind) : true));
+    const next = candidates.reduce((best, u) => !best || edgeDistance(hero, u) < edgeDistance(hero, best) ? u : best, null);
+    if (next) hero.targetId = next.id;
+    else hero.attackMode = null;
+  }
+  // Après l'impact, la récupération peut céder à la poursuite ; la cadence reste intacte.
+  const chaseTarget = hero.targetId !== null ? getUnit(world, hero.targetId) : null;
+  if (hero.approach && hero.swing?.hitDone && chaseTarget && edgeDistance(hero, chaseTarget) > hero.def.auto.range) {
+    cancelSwing(world, hero, 'chase_after_hit');
   }
 
   // Ordre « attaquer » : on s'approche de la cible jusqu'à la portée, puis les autos reprennent.
@@ -646,6 +692,7 @@ function kill(world, source, target) {
     }
   } else if (target.kind === 'tower') {
     world.stats[otherTeam(target.team)].towers++;
+    if (world.match) awardTeamGold(world, otherTeam(target.team), world.match.economy.towerGold[target.tier] || 0, 'tower');
     emit(world, { type: 'tower_destroyed', unitId: target.id, team: target.team, lane: target.lane, tier: target.tier });
   } else if (target.kind === 'core') {
     world.over = { winnerTeam: otherTeam(target.team), atMs: world.time, reason: 'core' };
@@ -657,6 +704,7 @@ function kill(world, source, target) {
   } else {
     if (world.match) awardXp(world, otherTeam(target.team), target.x, target.y, target.def.xp);
     if (source && source.kind === 'hero') awardGold(world, source, target.def.gold || 0); // or au dernier coup
+    else if (world.match) awardLaneShare(world, otherTeam(target.team), target.x, target.y, target.def.gold || 0);
     emit(world, { type: 'minion_died', unitId: target.id });
   }
 }

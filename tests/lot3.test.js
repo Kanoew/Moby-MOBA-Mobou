@@ -185,14 +185,16 @@ test('Coupe éclair : vers la cible verrouillée si à portée, et s\'arrête au
   assert.ok(a2.x < 1100 - 80, 'arrêté par le rocher');
 });
 
-test('un lancer occupe le héros : déplacement refusé pendant l\'animation, accepté ensuite', () => {
+test('un lancer occupe le héros : déplacement mémorisé pendant l\'animation, repris ensuite', () => {
   const w = duo('yeji');
   open(w);
   levelTo(w, 'a', 2);
   issueCommand(w, 'a', { type: 'level_up', slot: 'skill' });
   issueCommand(w, 'a', { type: 'skill', x: 1000, y: 900 });
-  assert.equal(issueCommand(w, 'a', { type: 'move', x: 900, y: 900 }), false);
+  assert.equal(issueCommand(w, 'a', { type: 'move', x: 900, y: 900 }), true);
+  assert.ok(getUnit(w, 'a').cast, 'le déplacement ne coupe pas la compétence');
   run(w, 460);
+  assert.ok(getUnit(w, 'a').moveTarget, 'le déplacement reprend sans second clic');
   assert.equal(issueCommand(w, 'a', { type: 'move', x: 900, y: 900 }), true);
 });
 
@@ -372,9 +374,9 @@ test('Jennie · Couronne de ronces : posée à 180 ms, dégâts après le délai
 
 /* ------------------------------- jungle & boss ------------------------------- */
 
-test('camps : absents avant 0:30, symétriques, passifs, ripostent, réapparaissent après 60 s', () => {
+test('camps : absents avant 0:15, symétriques, passifs, ripostent, réapparaissent après 60 s', () => {
   const w = duo();
-  run(w, 29900);
+  run(w, 14900);
   assert.equal(w.units.filter((u) => u.kind === 'monster').length, 0);
   run(w, 400);
   const mons = w.units.filter((u) => u.kind === 'monster');

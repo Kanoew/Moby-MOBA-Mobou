@@ -6,6 +6,26 @@ Trois compagnons jouables, mêmes des deux côtés : **Yeji** (katana, mêlée r
 
 Aucune dépendance : un navigateur récent et Node ≥ 20.
 
+## Combat 0.9.0 : continuité des commandes
+
+- Une commande de déplacement, de ciblage ou d'arrêt pendant une compétence est mémorisée et exécutée à la fin du lancer. La dernière intention remplace la précédente. Relâcher le joystick pendant le lancer annule donc le déplacement en attente ; un joystick maintenu reprend après le lancer.
+- Une compétence prête peut être mise en attente pendant les dernières 160 ms du lancer courant. Les recharges et les niveaux requis restent respectés, et l'animation en cours n'est pas interrompue.
+- En poursuite explicite, après l'impact d'une auto, le héros peut reprendre sa course si l'adversaire sort de portée. Cette récupération écourtée ne réinitialise pas la cadence.
+- Après la perte d'une cible, l'attaque explicite peut enchaîner sur une autre cible déjà à portée, selon le filtre choisi. Sans cible admissible, elle s'arrête. Un déplacement manuel annule cet enchaînement ; un simple clic de verrou n'active pas cette assistance.
+- Stop annule aussi le verrou et l'attaque en cours. Il ne retire pas un projectile déjà parti et ne coupe pas une compétence en cours : dans ce cas l'arrêt est mémorisé.
+
+Ces changements reprennent les principes de continuité des commandes et de déplacement entre les coups courants dans les MOBA, sans reproduire les valeurs d'un titre particulier. Les timings d'impact restent synchronisés avec les animations existantes.
+
+## Ajustements 0.8.0 : équipement, rythme et rendu
+
+Les objets offensifs ajoutent maintenant de l'Attaque permanente, utilisée par les autos et les coefficients des compétences : Lame courte +10, Dague +24, Gants +22, Marteau +28, Grimoire +8, Catalyseur +14, Relique +18, Sceau +16. Ces statistiques s'ajoutent aux passifs déjà décrits ci-dessous. Elles se cumulent entre objets différents et disparaissent à la revente. La boutique affiche l'Attaque actuelle et sa valeur après achat/revente. Prix et règles d'achat restent identiques.
+
+Les déplacements des trois héros sont accélérés de 12 % (Yeji 336, Jennie 325, Sweetie 314). Les compétences se rechargent en 5 / 4,5 / 4 secondes selon leur rang ; les ultimes restent à 45 secondes. Il s'agit d'une première passe d'équilibrage, à éprouver en partie.
+
+Le terrain statique est mis en cache et reconstruit à l'ouverture des bases. Les images sont décodées avant l'entrée en jeu et la densité de rendu Canvas est plafonnée à 2, pour réduire la charge sur les écrans denses sans modifier les coordonnées tactiles. Les interfaces HTML conservent leur résolution native.
+
+Mesure Chromium à 844×390, écran DPR 3, trois ultimes simultanés sur 180 étapes : temps CPU simulation + soumission du dessin médian 11,9 → 6,4 ms ; p95 14,7 → 9,9 ms. Ce microbenchmark synchrone ne mesure ni la cadence présentée à l'écran ni le GPU d'un téléphone physique. La première image reste plus coûteuse (construction du cache).
+
 ## Lancer
 
 ```bash
@@ -31,7 +51,7 @@ En 3v3, la jungle et le territoire adverse sont assombris hors de la vision de v
 
 La vue principale, la mini-carte, les barres de vie, les effets et le ciblage utilisent la même règle. Les ennemis et monstres cachés ne sont pas sélectionnables au clic ni par l'assistance d'attaque. Un verrou se perd lorsque la cible sort de la vision partagée. Les timers des camps ne s'affichent que sous vision. Le duel conserve sa visibilité complète.
 
-Chaque gain d'or (dernier coup, élimination, assistance et revente) produit un chiffre doré flottant, des pièces animées et un tintement local. Les gains rapprochés s'empilent. Les impacts ont un éclat bref et les attaques du joueur un son discret ; un cercle turquoise confirme les ordres de déplacement. Le départ propose un compte à rebours, une invitation à acheter le starter, puis « En avant ! » et un signal sonore à l'ouverture des bases. Le réglage Son coupe ces sons ; la préférence de mouvement réduit supprime pièces, éclats, cercles et déplacement des chiffres. Les effets se figent pendant la pause.
+Chaque gain ponctuel d'or (dernier coup, présence, objectif, élimination, assistance et revente) produit un chiffre doré flottant, des pièces animées et un tintement local. Les gains rapprochés s'empilent. Le revenu passif fait seulement monter le compteur, sans son ni particules. Les impacts ont un éclat bref et les attaques du joueur un son discret ; un cercle turquoise confirme les ordres de déplacement. Le départ propose un compte à rebours, une invitation à acheter le starter, puis « En avant ! » et un signal sonore à l'ouverture des bases. Le réglage Son coupe ces sons ; la préférence de mouvement réduit supprime pièces, éclats, cercles et déplacement des chiffres. Les effets se figent pendant la pause.
 
 ## Bouton Attaque (ciblage automatique)
 
@@ -82,7 +102,7 @@ En automatique : `npm test` couvre chacun de ces points (verrou, portée, pause,
 
 - **Carte** : deux lignes reliées par une jungle (obstacles seulement, camps et boss au lot 3). Par camp : base, zone de départ, noyau, quatre tours (extérieure puis intérieure sur chaque ligne), huit au total.
 - **Vulnérabilité** : l'extérieure est toujours attaquable ; l'intérieure seulement après la chute de l'extérieure de sa ligne ; le noyau dès qu'une ligne a perdu ses deux tours. Une cible protégée ne se verrouille pas (le clic devient un déplacement). Détruire le noyau termine la partie.
-- **Horloge** : 0:00 les six héros sont dans leur zone de départ ; **0:05** les sorties s'ouvrent (avant, les héros sont confinés) ; **0:30** première vague, puis toutes les 25 s (3 gnomes + 1 troll par ligne et par équipe, étalés de 450 ms).
+- **Horloge** : 0:00 les six héros sont dans leur zone de départ ; **0:05** les sorties s'ouvrent (avant, les héros sont confinés) ; **0:15** première vague, puis toutes les 25 s (3 gnomes + 1 troll par ligne et par équipe, étalés de 450 ms).
 - **Tours** : visent d'abord les sbires à portée, puis les héros. Un héros qui frappe un héros allié de la tour, tout en étant à portée de celle-ci, attire ses tirs pendant 2,5 s.
 - **Mort** : délai interpolé linéairement (5 s jusqu'à 2 min, 11 s à 5 min, 20 s à 9 min et après), arrondi à la seconde. Le héros réapparaît dans sa base avec ses PV pleins. Compteurs éliminations / morts / assistances (assistance : un coup au héros tué dans les 10 s précédentes, sans le coup final).
 - **Base** : soin de 8 % des PV max par seconde dans sa propre zone de départ.
@@ -105,7 +125,7 @@ En automatique : `npm test` couvre chacun de ces points (verrou, portée, pause,
 
 **Monstres des lignes.** Chaque vague compte **trois gnomes et un troll** par ligne et par équipe (le sbire à distance du lot 2 est retiré : aucune planche ne le couvrait). Le troll est plus gros, plus lent, plus résistant et rapporte plus d'XP.
 
-**Jungle.** De **chaque côté**, un camp de fleurs carnivores et un camp de dragons : une grande unité au centre et deux petites sur les côtés (positions et échelles du pack). Les camps de l'autre côté sont le miroir exact (mêmes distances d'accès pour les deux équipes). Ils apparaissent à 0:30, sont passifs tant qu'on ne les frappe pas, puis **tout le camp riposte ensemble**. Ils abandonnent la poursuite hors de leur laisse, reviennent se soigner, et réapparaissent 60 s après avoir été nettoyés.
+**Jungle.** De **chaque côté**, un camp de fleurs carnivores et un camp de dragons : une grande unité au centre et deux petites sur les côtés (positions et échelles du pack). Les camps de l'autre côté sont le miroir exact (mêmes distances d'accès pour les deux équipes). Ils apparaissent à 0:15, sont passifs tant qu'on ne les frappe pas, puis **tout le camp riposte ensemble**. Ils abandonnent la poursuite hors de leur laisse, reviennent se soigner, et réapparaissent 60 s après avoir été nettoyés.
 
 **Cerbère (boss).** Annonce à **3:15**, apparition à **3:30** au centre exact de la carte. Mort à 4:10 → retour à **7:40** (3:30 après sa mort ; nouvelle annonce 15 s avant). Deux attaques : une **morsure** (impact à 320 ms) et un **souffle de braises** en cône de 35° sur 320 px (départ à 510 ms, toutes les 7 s), qui touche aussi les héros et sbires alentour. Calibré pour qu'un duo (Yeji + Jennie niveau 4) le batte en moins de 40 s sans perdre un héros.
 
@@ -139,9 +159,24 @@ Les bonus de recharge ne descendent jamais sous `minSkillCooldownMs` (1000 ms).
 
 **Bots.** Ils achètent leur starter à 0:00, puis des gros objets selon leur rôle (Yeji physique, Sweetie tank, Jennie magique), revendent le starter quand l'inventaire est plein, et se **rappellent** pour aller à la boutique ou quand ils sont blessés et loin de la base, s'ils sont à l'abri.
 
+## Revenus du lot 6 : or du temps, de présence et d'objectif
+
+Avant ce lot, l'or ne venait que du dernier coup, des éliminations et des assistances : un héros gagnait en moyenne **1 280 or sur 10 minutes** (30 or la première minute), le délai médian entre deux gains était de **21 s** et un gros objet à 850-1 050 n'arrivait qu'à **7:30**. La boutique ne servait presque à rien. Quatre revenus s'ajoutent (tout est dans `data/match.json`, bloc `economy`) :
+
+| Revenu | Valeur | Règle |
+| --- | --- | --- |
+| Or du temps | **2 or/s** (`passivePerSec`) | Tout héros vivant, versé en paliers entiers ; le compteur monte sans afficher « +2 » à chaque seconde. |
+| Or de présence | **50 %** de l'or du sbire (`laneShareRatio`), héros à moins de **800 px** (`laneShareRadius`) | Quand un sbire ou un monstre meurt sans dernier coup de héros (sbires alliés, tour). Si un héros porte le coup, il garde l'or complet et personne d'autre ne reçoit de part. |
+| Tour détruite | **150** (extérieure) / **200** (intérieure) pour **chaque héros** de l'équipe (`towerGold`) | Vivants ou non. |
+| Cerbère | **200** par héros de l'équipe (`bossTeamGold`) | En plus des 250 du dernier coup. |
+
+Rythme : première vague et camps de jungle à **0:15** au lieu de 0:30 (`waves.firstMs`, `jungle.startMs`).
+
+Mesure avec six bots (quatre graines, 10 minutes) : or par héros **1 280 → environ 3 170**, soit ~320 or par minute ; délai médian entre gains **21 s → 4 s** ; premier gros objet **7:30 → 3:40**, deuxième **jamais → 6:30**, troisième vers **8:15**. Les niveaux restent dans la fourchette voulue (niveau 4-5 à 4:00, 8-9 à 8:00).
+
 ## Limites connues
 
-- **Économie** : valeurs de départ. En 10 minutes un héros de bot achète en moyenne un starter et un gros objet, parfois deux. Le troisième emplacement se remplit rarement.
+- **Économie** : valeurs de départ, calées avec des bots (voir « Revenus du lot 6 »). Le rythme visé est atteint : premier gros objet vers 3:40, deuxième vers 6:30, troisième vers 8:15 pour la plupart des bots. À réévaluer avec de vrais joueurs, qui farment mieux que les bots.
 - **Rappel de 3,6 s** et non 4 s (durée des animations) ; les effets d'objets n'ont pas d'icône sur le héros (pas d'indicateur de bouclier de Talisman ou de bonus d'Armure, hors barre de PV).
 - **Sbires** : ils suivent la ligne en ligne droite, sans collision avec les obstacles ni avec les héros, et s'écartent seulement les uns des autres.
 - **Équilibrage** : valeurs de départ (structures : tour extérieure 1300 PV, intérieure 1600, noyau 2000). Deux équipes de bots identiques s'annulent (les vagues se rencontrent au milieu, rien ne bascule) ; la partie se décide dès qu'un humain ou un déséquilibre intervient. Une équipe de trois bots détruit le noyau d'un héros inactif en 3 à 7 minutes (IA renforcée).
@@ -160,7 +195,7 @@ En jeu, avec `?level=3&spend=1&bot=off` pour avoir skill et ultime tout de suite
 2. Yeji : le dash traverse deux ennemis alignés et les touche une fois chacun ; `R` pose une zone qui te suit, un ennemi qui s'y trouve ralentit.
 3. Sweetie : le dash s'arrête sur le premier ennemi ; `R` fait apparaître le bouclier, qui disparaît à 4 s.
 4. Jennie : trois bouquets partent en éventail ; `R` pose l'anneau de ronces, qui inflige des dégâts après un court délai.
-5. À 0:30 les camps apparaissent ; à 3:15 une annonce, à 3:30 le Cerbère au centre : approche-toi de lui, il alterne morsure et souffle en cône. Tue-le avec un autre héros : l'invite « Vague renforcée » s'ouvre, choisis `1` ou `2`.
+5. À 0:15 les camps apparaissent ; à 3:15 une annonce, à 3:30 le Cerbère au centre : approche-toi de lui, il alterne morsure et souffle en cône. Tue-le avec un autre héros : l'invite « Vague renforcée » s'ouvre, choisis `1` ou `2`.
 6. Monte de niveau (`?level=2`) : le bouton « + » apparaît sur Attaque et sur la compétence ; l'ultime se débloque au niveau 3.
 
 ## Vérifier le lot 2
@@ -168,13 +203,13 @@ En jeu, avec `?level=3&spend=1&bot=off` pour avoir skill et ultime tout de suite
 À la main, avec `?speed=4` pour aller plus vite :
 
 1. À 0:01, tenter de sortir de la zone : le héros reste dedans jusqu'à **0:05**.
-2. À **0:30** les premières vagues partent ; elles se rencontrent près du centre de chaque ligne vers 0:45.
+2. À **0:15** les premières vagues partent ; elles se rencontrent près du centre de chaque ligne vers 0:45.
 3. Verrouiller une tour intérieure : le clic se transforme en déplacement tant que l'extérieure vit (cristal creux, libellé « protégé »).
 4. Se placer sous une tour ennemie avec un sbire allié près d'elle : la tour tire sur le sbire. Frapper un héros ennemi à portée de sa tour : elle se retourne contre vous.
 5. Mourir : compte à rebours au centre de l'écran, réapparition dans la base en PV pleins, compteur de morts incrémenté.
 6. Détruire deux tours d'une même ligne puis le noyau : écran Victoire.
 
-En automatique : `npm test` (163 tests) couvre le tableau de réapparition, la sortie à 0:05, les vagues à 0:30, l'invulnérabilité en cascade, la fin de partie, la priorité des tours, l'assistance, le soin en base et les bots (destruction du noyau d'un héros inactif, repli puis retour en lane). Le lot 3 est couvert par `tests/lot3.test.js` (niveaux et rangs, partage d'XP, dash qui traverse ou qui s'arrête, éventail, bouclier et son expiration à 4 220 ms, zones et ralentissements, camps, laisse, boss à 3:15 / 3:30 / 7:40, duo contre le boss, vague renforcée et choix par défaut) et `tests/animator.test.js` (images, directions, échelles). `tests/ui.test.js` couvre la boutique et le profil, la cohérence des versions et de la carte d'import, le joystick, les boutons d'action et la commande `steer`. `tests/lot4.test.js` couvre l'or, les règles d'achat et de vente, les douze effets, le rappel et ses interruptions, les achats des bots et les données du tableau des scores. `tests/lot5.test.js` couvre la commande d'attaque (approche, contournement d'obstacle, annulations), le choix automatique de cible, le verrouillage de l'ultime avant le niveau 3, l'activité des bots (assistance, défense, poussée, rassemblement contre le boss) et la logique du lobby (minuteur, validation automatique, choix, bots). `tests/balance.test.js` couvre les recharges, l'XP du temps et des kills, la limite de 10 minutes, les camps symétriques, le souffle du Cerbère et la synchronisation données ↔ animations (impact à la 4e image, durées, fichiers présents).
+En automatique : `npm test` (171 tests) couvre le tableau de réapparition, la sortie à 0:05, les vagues à 0:15, l'invulnérabilité en cascade, la fin de partie, la priorité des tours, l'assistance, le soin en base et les bots (destruction du noyau d'un héros inactif, repli puis retour en lane). Le lot 3 est couvert par `tests/lot3.test.js` (niveaux et rangs, partage d'XP, dash qui traverse ou qui s'arrête, éventail, bouclier et son expiration à 4 220 ms, zones et ralentissements, camps, laisse, boss à 3:15 / 3:30 / 7:40, duo contre le boss, vague renforcée et choix par défaut) et `tests/animator.test.js` (images, directions, échelles). `tests/ui.test.js` couvre la boutique et le profil, la cohérence des versions et de la carte d'import, le joystick, les boutons d'action et la commande `steer`. `tests/lot4.test.js` couvre l'or, les règles d'achat et de vente, les douze effets, le rappel et ses interruptions, les achats des bots et les données du tableau des scores. `tests/lot5.test.js` couvre la commande d'attaque (approche, contournement d'obstacle, annulations), le choix automatique de cible, le verrouillage de l'ultime avant le niveau 3, l'activité des bots (assistance, défense, poussée, rassemblement contre le boss) et la logique du lobby (minuteur, validation automatique, choix, bots). `tests/balance.test.js` couvre les recharges, l'XP du temps et des kills, la limite de 10 minutes, les camps symétriques, le souffle du Cerbère et la synchronisation données ↔ animations (impact à la 4e image, durées, fichiers présents).
 
 ## Hors périmètre
 

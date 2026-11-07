@@ -79,9 +79,10 @@ Le terrain Canvas affiche un sol texturé déterministe, des chemins de pierre e
 
 Validation : suite Node complète et parcours Chromium aux formats 1440×900, 844×390 et 667×375 (accueil, personnages, boutique, sélection, lancement et boutique en partie). Les contrôles de ciblage ont aussi été exercés sur PC et mobile. Les performances sur téléphones physiques restent à vérifier.
 
+- Gains d'or : le compteur du HUD monte en continu (or du temps) ; l'indicateur `#gold-gain` (« +20 ») ne s'affiche que pour les gains ponctuels (dernier coup, présence, objectif, élimination), jamais pour le revenu du temps (événement `gold` avec `source: 'passive'`). L'événement porte maintenant `source` (`kill`, `lane`, `tower`, `boss`, `passive`, `sale`) : utile pour de futurs sons ou chiffres flottants.
 
 ## Brouillard et effets de récompense
 
 `src/sim/vision.js` centralise les sources et les portées partagées. Le rendu réutilise le même masque à bord doux pour le terrain et la mini-carte. Toute nouvelle unité, barre ou indication dynamique doit passer par cette visibilité avant affichage ; conserver le brouillard dans le ciblage souris/tactile et les décisions des bots. Les monstres neutres gardent leur riposte et leur laisse.
 
-L'événement `gold` porte le montant et les coordonnées du bénéficiaire au moment du gain. Il alimente le HUD, les chiffres et pièces du canvas et le son local, y compris après revente. Les effets restent purement visuels : ils ne retardent ni le crédit d'or ni les commandes. `move_order` confirme la destination calculée par le pathfinding. Les effets respectent pause et mouvement réduit ; le son est déverrouillé au premier appui souris, tactile ou clavier.
+Pour les gains ponctuels (hors `source: 'passive'`), l'événement `gold` porte le montant et les coordonnées du bénéficiaire au moment du gain. Il alimente le HUD, les chiffres et pièces du canvas et le son local, y compris après revente. Les effets restent purement visuels : ils ne retardent ni le crédit d'or ni les commandes. `move_order` confirme la destination calculée par le pathfinding. Les effets respectent pause et mouvement réduit ; le son est déverrouillé au premier appui souris, tactile ou clavier.

@@ -1,6 +1,6 @@
 import { createWorld, getUnit, issueCommand, step, TEAM_ALLY, TEAM_ENEMY } from './sim/world.js';
 import { updateBot } from './sim/bot.js';
-import { canCast } from './sim/abilities.js';
+import { canCast, canQueueCast } from './sim/abilities.js';
 import { gainXp } from './sim/progression.js';
 import { collectImagePaths, createRenderer, loadImages } from './render/renderer.js';
 import { bindPointer, commandForPoint } from './input/pointer.js';
@@ -219,7 +219,7 @@ async function boot() {
   /* ----- Souris / appui sur la carte ----- */
   const cast = (slot, p) => issue({ type: slot, x: p ? p.x : undefined, y: p ? p.y : undefined });
   function startAim() {
-    if (game && game.world.match && canCast(game.world, me(), 'skill')) game.aim = { slot: 'skill' };
+    if (game && game.world.match && (canCast(game.world, me(), 'skill') || canQueueCast(game.world, me(), 'skill'))) game.aim = { slot: 'skill' };
   }
   function hudAction(a) {
     if (a.type === 'level_up') issue(a);
@@ -375,7 +375,7 @@ async function boot() {
       }
     }
     const p = me();
-    const aim = game.aim && (!game.world.match || p.dead || p.cast || !canCast(game.world, p, game.aim.slot)) ? null : game.aim;
+    const aim = game.aim && (!game.world.match || p.dead || !(canCast(game.world, p, game.aim.slot) || canQueueCast(game.world, p, game.aim.slot))) ? null : game.aim;
     if (!aim) game.aim = null;
     game.renderer.draw(blocked ? 0 : dt, PLAYER_ID, aim ? (aim.fromTouch ? aim : { slot: aim.slot, x: pointer.x, y: pointer.y }) : null);
     if (touchMode) updateTouchHud(touchEls, game.world, p);

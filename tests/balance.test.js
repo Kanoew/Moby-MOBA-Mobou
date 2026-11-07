@@ -30,9 +30,9 @@ const place = (u, x, y) => { u.x = x; u.y = y; };
 
 /* --------------------------------- recharges --------------------------------- */
 
-test('recharges : 5 s pour tous les skills, 45 s pour tous les ultimes, à tous les rangs', () => {
+test('recharges : skills 5 / 4,5 / 4 s selon le rang, ultimes 45 s', () => {
   for (const [key, def] of Object.entries(heroDefs)) {
-    assert.deepEqual(def.abilities.skill.cooldownMs, [5000, 5000, 5000], `${key} skill`);
+    assert.deepEqual(def.abilities.skill.cooldownMs, [5000, 4500, 4000], `${key} skill`);
     assert.deepEqual(def.abilities.ult.cooldownMs, [45000, 45000, 45000], `${key} ultime`);
   }
 });
@@ -111,7 +111,7 @@ test('la partie dure au plus 10 minutes : fin au temps, vainqueur aux dégâts s
   assert.equal(match.timeLimitMs, 600000);
   const w = duo();
   const t = getUnit(w, 'tower-enemy-top-outer');
-  t.hp -= 300;
+  t.hp -= 900;
   run(w, 605000);
   assert.ok(w.over);
   assert.equal(w.over.reason, 'time');
