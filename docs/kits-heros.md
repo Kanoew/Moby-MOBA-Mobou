@@ -34,17 +34,17 @@ Composition de test : Jennie (distance), Sweetie et Yeji (deux bruisers, mi-tank
 | | Rang 1 / 2 / 3 | Règle |
 | --- | --- | --- |
 | Stats | PV 820 · Attaque 55 · Défense 45 · vitesse 280 | Plus lente et plus solide que Yeji. |
-| Auto | Coup d'épée | Dégâts à 200 ms (image 3), arrêt sur impact de 45 ms (pack d'attaque). |
-| **Skill · Ruée** (ex-Pas d'attaque) | portée 260 / 290 / 320 · recharge 9 / 8 / 7 s · dégâts 70 / 105 / 140 | Dash vers la cible ou la direction visée. **S'arrête au contact** de la première cible touchée, avec arrêt sur impact. Plus court mais plus fort que Fente. |
+| Auto | Coup d'épée | Dégâts à 200 ms (image 3). L'arrêt sur impact de 45 ms proposé par le pack n'est pas encore implémenté. |
+| **Skill · Ruée** (ex-Pas d'attaque) | portée 260 / 290 / 320 · recharge 9 / 8 / 7 s · dégâts 70 / 105 / 140 | Dash vers la cible ou la direction visée. **S'arrête au contact** de la première cible touchée (elle seule est touchée). Plus court mais plus fort que la Coupe éclair. |
 | **Ult · Bouclier** (niv. 3 / 6 / 9) | absorbe 150 / 250 / 350 · durée 4 s · recharge 60 / 50 / 40 s | Le bouclier absorbe **après** la Défense et **avant** les PV. Disparaît à la fin de la durée. |
 
-## Ce que ça demande à la simulation
+## Ce que la simulation fait
 
 - **Statuts** : ralentissement (valeur, source, fin) et bouclier (montant, fin). Ils vivent sur l'unité, lus par le HUD.
 - **Dash** : déplacement forcé à vitesse fixe, collisions conservées, suspend les autos pendant le dash, ne change pas le verrou.
 - **Zone** : entité avec délai d'armement visible, durée et rayon, qui applique le statut chaque pas.
 - **Dégâts de dash et de zone** : même formule de Défense unique que les autos.
-- Aucune animation de skill n'existe encore : premier jet avec la ligne de course existante, une traînée et des cercles dessinés en couche d'effets séparée. Les animations arrivent plus tard sans toucher aux règles (l'instant d'impact vient des données).
+- Les animations fournies pilotent les instants (frappe à 185 ms, bouclier à 220 ms, éventail à 235 ms, anneau à 180 ms) ; les effets (orbite, zones, bouclier, trait de coupe) sont dessinés dans une couche séparée, sans toucher aux règles.
 
 ## Jennie (ajouté au lot 3)
 
