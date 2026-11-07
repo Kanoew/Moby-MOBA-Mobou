@@ -7,6 +7,7 @@ export function startRecall(world, hero) {
   if (!world.match || world.over || hero.dead || hero.cast || hero.recall) return false;
   hero.moveTarget = null;
   hero.steer = null;
+  hero.approach = false;
   hero.path = [];
   cancelSwing(world, hero, 'recall');
   hero.recall = { t: 0, durationMs: world.match.recall.durationMs, facing: { ...hero.facing } };

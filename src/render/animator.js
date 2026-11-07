@@ -62,7 +62,7 @@ export function pickSprite(hero, animClockMs, inCombat = false, extra = {}) {
 
   // Maintien de l'ultime (Yeji) : deux poses alternées tant que la zone dure, puis pose de retour.
   const ult = sp.abilities && sp.abilities.ult;
-  if (ult && ult.holdFrames && !(hero.moveTarget || hero.steer) && !hero.swing && (extra.ultActive || extra.recovering)) {
+  if (ult && ult.holdFrames && !(hero.moveTarget || hero.steer || hero.walking) && !hero.swing && (extra.ultActive || extra.recovering)) {
     const [cw, ch] = ult.cell;
     const dir = directionFromFacing(hero.facing);
     const frame = extra.ultActive ? ult.holdFrames[Math.floor(animClockMs / ult.holdFrameMs) % ult.holdFrames.length] : ult.recoveryFrame;
@@ -86,13 +86,13 @@ export function pickSprite(hero, animClockMs, inCombat = false, extra = {}) {
 
   // Garde : verrou en place, à portée, entre deux coups (si une planche à quatre directions existe).
   const [cw, ch] = comp.cell;
-  if (!(hero.moveTarget || hero.steer) && inCombat && atk.directions) {
+  if (!(hero.moveTarget || hero.steer || hero.walking) && inCombat && atk.directions) {
     const [acw, ach] = atk.cell;
     const dir = directionFromFacing(hero.facing);
     return { kind: 'guard', sheet: atk.sheet, sx: 5 * acw, sy: atk.directions[dir] * ach, sw: acw, sh: ach, anchor: atk.anchor, scale: baseScale * atk.scaleRelativeToCompanion, flip: false, frame: 5 };
   }
 
-  const state = hero.moveTarget || hero.steer ? (hero.facing.x >= 0 ? 'running-right' : 'running-left') : 'idle';
+  const state = hero.moveTarget || hero.steer || hero.walking ? (hero.facing.x >= 0 ? 'running-right' : 'running-left') : 'idle';
   const anim = comp.animations[state];
   const i = frameAt(anim.durationsMs, animClockMs, true);
   return { kind: state, sheet: comp.sheet, sx: i * cw, sy: anim.row * ch, sw: cw, sh: ch, anchor: comp.anchor, scale: baseScale, flip: false, frame: i };

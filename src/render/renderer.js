@@ -88,7 +88,15 @@ export function createRenderer(canvas, world, images, opts = {}) {
     else if (ev.type === 'boss_killed') toast(ev.team ? `Cerbère vaincu par ${ev.team === localTeamOf() ? 'votre équipe' : "l'équipe adverse"}` : 'Cerbère vaincu', 4500);
     else if (ev.type === 'bonus_lane') toast(`Vague renforcée : ligne ${ev.lane === 'top' ? 'du haut' : 'du bas'}${ev.byDefault ? ' (choix par défaut)' : ''}`, 4500);
     else if (ev.type === 'tower_destroyed') toast(`Tour ${ev.tier === 'outer' ? 'extérieure' : 'intérieure'} détruite (${ev.team === localTeamOf() ? 'alliée' : 'adverse'})`, 3500);
-    else if (ev.type === 'level_up' && ev.heroId === localIdOf()) toast(`Niveau ${ev.level}`, 3000);
+    else if (ev.type === 'level_up' && ev.heroId === localIdOf()) {
+      // L'ultime se débloque tout seul aux niveaux 3, 6 et 9 (aucun point à y mettre) ; on le dit.
+      const ul = world.match ? world.match.progression.ultLevels : [];
+      const hero = getUnit(world, ev.heroId);
+      const parts = [`Niveau ${ev.level}`];
+      if (ul.includes(ev.level)) parts.push(`ultime rang ${ul.indexOf(ev.level) + 1} débloqué`);
+      if (hero && hero.points > 0) parts.push(`${hero.points} point${hero.points > 1 ? 's' : ''} à dépenser`);
+      toast(parts.join(' · '), 4200);
+    }
     else if (ev.type === 'death' && ev.heroId === localIdOf()) toast(`Éliminé${ev.killerId ? ' par ' + heroName(ev.killerId) : ''}`, 3500);
   };
   let localId_ = null;

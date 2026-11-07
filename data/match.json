@@ -291,14 +291,14 @@
   "progression": {
     "levels": [
       0,
-      90,
-      220,
-      400,
-      640,
-      940,
-      1300,
-      1720,
-      2200
+      110,
+      410,
+      670,
+      920,
+      1180,
+      1470,
+      1780,
+      2130
     ],
     "pointLevels": [
       2,
@@ -598,5 +598,9 @@
     "killGold": 200,
     "assistGold": 80,
     "shopRadius": 230
+  },
+  "attackAssist": {
+    "radius": 700,
+    "maxChase": 900
   }
 }

@@ -72,6 +72,8 @@ export function newUnit(world, { id, kind, team, def, x, y, radius }) {
     targetId: null,
     moveTarget: null,
     steer: null,
+    approach: false,
+    walking: false,
     path: [],
     swing: null,
     nextAttackAt: 0,
@@ -262,6 +264,22 @@ export function issueCommand(world, heroId, cmd) {
       if (ok) cancelRecall(world, hero, 'cast');
       return ok;
     }
+    case 'attack': {
+      // Bouton d'attaque : verrouille ET s'approche de la cible tant qu'elle reste à portée de poursuite.
+      // Exception voulue à « jamais de poursuite automatique » : c'est un ordre explicite du joueur, pas un clic de verrou.
+      const t = getUnit(world, cmd.targetId);
+      if (!isTargetable(world, hero, t)) return false;
+      if (hero.targetId !== t.id) cancelSwing(world, hero, 'retarget');
+      hero.targetId = t.id;
+      hero.approach = true;
+      hero.apPath = null;
+      hero.moveTarget = null;
+      hero.steer = null;
+      hero.path = [];
+      cancelRecall(world, hero, 'attack');
+      emit(world, { type: 'target_lock', heroId: hero.id, targetId: t.id, approach: true });
+      return true;
+    }
     case 'recall':
       return startRecall(world, hero);
     case 'buy':
@@ -276,6 +294,7 @@ export function issueCommand(world, heroId, cmd) {
         return true;
       }
       hero.steer = { x: cmd.x / len, y: cmd.y / len };
+      hero.approach = false;
       cancelRecall(world, hero, 'move');
       hero.moveTarget = null;
       hero.path = [];
@@ -292,6 +311,7 @@ export function issueCommand(world, heroId, cmd) {
       hero.path = findPath(world.map, hero.radius, { x: hero.x, y: hero.y }, { x, y });
       hero.moveTarget = { ...hero.path[hero.path.length - 1] };
       hero.steer = null;
+      hero.approach = false;
       hero.stuckMs = 0;
       cancelRecall(world, hero, 'move');
       cancelSwing(world, hero, 'move');
@@ -300,6 +320,7 @@ export function issueCommand(world, heroId, cmd) {
     case 'stop':
       hero.moveTarget = null;
       hero.steer = null;
+      hero.approach = false;
       hero.path = [];
       return true;
     case 'target': {
@@ -307,12 +328,14 @@ export function issueCommand(world, heroId, cmd) {
       if (!isTargetable(world, hero, t)) return false;
       if (hero.targetId !== t.id) cancelSwing(world, hero, 'retarget');
       hero.targetId = t.id;
+      hero.approach = false; // un simple verrou ne poursuit pas
       cancelRecall(world, hero, 'attack'); // verrouiller un ennemi lance une attaque : le rappel s'interrompt
       emit(world, { type: 'target_lock', heroId: hero.id, targetId: t.id });
       return true;
     }
     case 'clear_target':
       hero.targetId = null;
+      hero.approach = false;
       cancelSwing(world, hero, 'clear_target');
       return true;
     default:
@@ -372,6 +395,7 @@ function endByTime(world) {
 }
 
 function updateHero(world, hero, dtMs) {
+  hero.walking = false;
   if (hero.dead) {
     if (hero.respawnAt !== null && world.time >= hero.respawnAt) respawnHero(world, hero);
     return;
@@ -384,6 +408,7 @@ function updateHero(world, hero, dtMs) {
       const reason = !t || t.dead ? 'dead' : t.invisible ? 'invisible' : 'invulnerable';
       emit(world, { type: 'target_lost', heroId: hero.id, targetId: hero.targetId, reason });
       hero.targetId = null;
+      hero.approach = false;
       cancelSwing(world, hero, 'target_lost');
     }
   }
@@ -399,7 +424,19 @@ function updateHero(world, hero, dtMs) {
     return;
   }
 
-  // Le déplacement (clic ou joystick) suspend les autos. Le héros ne poursuit jamais la cible.
+  // Ordre « attaquer » : on s'approche de la cible jusqu'à la portée, puis les autos reprennent.
+  if (hero.approach && !hero.steer && !hero.moveTarget && !hero.swing && hero.targetId !== null) {
+    const t = getUnit(world, hero.targetId);
+    if (t && edgeDistance(hero, t) > hero.def.auto.range) {
+      const maxChase = world.match && world.match.attackAssist ? world.match.attackAssist.maxChase : 900;
+      if (Math.hypot(t.x - hero.x, t.y - hero.y) > maxChase) hero.approach = false; // trop loin : on renonce
+      else {
+        approachStep(world, hero, t, dtMs);
+        return;
+      }
+    }
+  }
+  // Le déplacement (clic ou joystick) suspend les autos. Le héros ne poursuit jamais la cible de lui-même.
   if (hero.steer) {
     steerHero(world, hero, dtMs);
     return;
@@ -568,6 +605,7 @@ function kill(world, source, target) {
   target.swing = null;
   target.moveTarget = null;
   target.steer = null;
+  target.approach = false;
   target.path = [];
   target.targetId = null;
   target.shield = null;
@@ -796,10 +834,40 @@ function updateBases(world, dtMs) {
 /* Déplacement et collisions                                            */
 /* ------------------------------------------------------------------ */
 
+function approachStep(world, hero, t, dtMs) {
+  // Chemin recalculé toutes les 300 ms : la poursuite contourne rochers et blocs comme un déplacement normal.
+  if (!hero.apPath || world.time >= hero.apRepath) {
+    hero.apPath = findPath(world.map, hero.radius, { x: hero.x, y: hero.y }, { x: t.x, y: t.y });
+    hero.apRepath = world.time + 300;
+  }
+  while (hero.apPath.length > 1 && Math.hypot(hero.apPath[0].x - hero.x, hero.apPath[0].y - hero.y) < 24) hero.apPath.shift();
+  const goal = hero.apPath.length > 1 ? hero.apPath[0] : { x: t.x, y: t.y };
+  const dx = goal.x - hero.x;
+  const dy = goal.y - hero.y;
+  const d = Math.hypot(dx, dy) || 1;
+  const s = (effectiveSpeed(world, hero) * dtMs) / 1000;
+  const bx = hero.x;
+  const by = hero.y;
+  hero.x += (dx / d) * s;
+  hero.y += (dy / d) * s;
+  face(hero, goal.x, goal.y);
+  pushOutOfObstacles(world, hero);
+  hero.walking = true;
+  // Bloqué derrière un obstacle : on abandonne plutôt que de pousser indéfiniment.
+  if (Math.hypot(hero.x - bx, hero.y - by) < s * 0.3) {
+    hero.stuckMs += dtMs;
+    if (hero.stuckMs >= 500) {
+      hero.approach = false;
+      hero.stuckMs = 0;
+    }
+  } else hero.stuckMs = 0;
+}
+
 function steerHero(world, hero, dtMs) {
   const s = effectiveSpeed(world, hero) * dtMs / 1000;
   hero.x += hero.steer.x * s;
   hero.y += hero.steer.y * s;
+  hero.walking = true;
   face(hero, hero.x + hero.steer.x, hero.y + hero.steer.y);
   pushOutOfObstacles(world, hero);
 }
