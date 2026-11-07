@@ -1,6 +1,7 @@
 // Jungle : petits camps symétriques, boss au centre exact, récompense de vague renforcée.
 import { applyDamage, combatTick, edgeDistance, emit, face, getUnit, isTargetable, newUnit, stepToward } from './world.js';
 import { awardXp } from './progression.js';
+import { awardGold } from './shop.js';
 
 const TEAMS = ['ally', 'enemy'];
 
@@ -133,6 +134,7 @@ function advanceSpecial(world, u, dtMs) {
 export function onMonsterKilled(world, source, u) {
   const team = source && source.team !== 'neutral' ? source.team : null;
   if (team) awardXp(world, team, u.x, u.y, u.def.xp);
+  if (source && source.kind === 'hero') awardGold(world, source, u.def.gold || 0); // or au dernier coup
   if (u.campId) {
     const camp = world.camps.find((c) => c.id === u.campId);
     if (camp.unitIds.every((id) => getUnit(world, id).dead)) camp.respawnAt = world.time + world.match.jungle.respawnMs;

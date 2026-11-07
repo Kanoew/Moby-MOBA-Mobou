@@ -31,7 +31,7 @@ export function loadImages(paths) {
             resolve();
           };
           img.onerror = () => reject(new Error(`image introuvable : ${src}`));
-          img.src = src;
+          img.src = window.APP_VERSION ? `${src}?v=${window.APP_VERSION}` : src; // numéro de version : force le rafraîchissement du cache
         }),
     ),
   ).then(() => out);
@@ -47,6 +47,7 @@ export function collectImagePaths(heroDefs, match) {
   for (const d of Object.values(heroDefs)) {
     paths.push(d.sprites.companion.sheet, d.sprites.attack.sheet);
     if (d.sprites.attack.projectile) paths.push(d.sprites.attack.projectile.texture);
+    if (d.sprites.recall) paths.push(d.sprites.recall.sheet);
     for (const a of Object.values(d.sprites.abilities || {})) {
       if (a.sheet) paths.push(a.sheet);
       // Textures d'effets : toute valeur de chemin dans le bloc fx.
@@ -61,7 +62,7 @@ const fmtClock = (ms) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-export function createRenderer(canvas, world, images) {
+export function createRenderer(canvas, world, images, opts = {}) {
   const ctx = canvas.getContext('2d');
   const clocks = new Map(); // unité → { state, since }
   const floaters = [];
@@ -319,8 +320,38 @@ export function createRenderer(canvas, world, images) {
     ctx.restore();
   }
 
+  /** Rappel : cercle au sol et jauge visibles de tous. */
+  function drawRecall(hero) {
+    const r = hero.recall;
+    if (!r) return;
+    const p = Math.min(1, r.t / r.durationMs);
+    const rx = hero.radius * 2.7;
+    const ry = rx * 0.5;
+    ctx.save();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255,211,107,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(hero.x, hero.y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = `rgba(255,211,107,${0.06 + 0.05 * Math.sin(r.t / 120)})`;
+    ctx.fill();
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = COLORS.gold;
+    ctx.beginPath();
+    ctx.ellipse(hero.x, hero.y, rx, ry, 0, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2);
+    ctx.stroke();
+    const w = 76;
+    const y = hero.y + ry + 16;
+    ctx.fillStyle = 'rgba(8,10,16,0.85)';
+    ctx.fillRect(hero.x - w / 2 - 2, y - 2, w + 4, 12);
+    ctx.fillStyle = COLORS.gold;
+    ctx.fillRect(hero.x - w / 2, y, w * p, 8);
+    ctx.restore();
+  }
+
   function drawHero(hero, localTeam) {
     if (hero.dead) return;
+    drawRecall(hero);
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
@@ -698,6 +729,7 @@ export function createRenderer(canvas, world, images) {
     // Haut centre : chrono, éliminations, tours détruites.
     const cx = canvas.width / 2;
     panel(cx - 170 * u, 8 * u, 340 * u, 46 * u);
+    pushHit(cx - 170 * u, 0, 340 * u, Math.max(54 * u, 44 * lastView.dpr), { type: 'scores' }); // toucher le score ouvre le tableau (cible tactile d'au moins 44 px)
     ctx.textAlign = 'center';
     ctx.fillStyle = COLORS.ink;
     ctx.font = `700 ${22 * u}px system-ui, sans-serif`;
@@ -773,6 +805,7 @@ export function createRenderer(canvas, world, images) {
   }
 
   function drawAbilityBar(local, u) {
+    if (opts.touch) return; // sur mobile, les boutons d'action sont en HTML (voir src/ui/touch.js)
     if (!local || !world.match || !local.def.abilities) return;
     const ab = local.def.abilities;
     const levels = world.match.progression.levels;
@@ -893,7 +926,7 @@ export function createRenderer(canvas, world, images) {
     ctx.font = `600 ${15 * u}px system-ui, sans-serif`;
     toasts.slice(-5).forEach((t, i) => {
       const w = ctx.measureText(t.text).width + 28 * u;
-      const y = 14 * u + i * 32 * u;
+      const y = Math.max(14 * u, 64 * lastView.dpr) + i * 32 * u; // sous les boutons HTML du haut
       ctx.fillStyle = 'rgba(14,18,28,0.85)';
       ctx.fillRect(rx - w, y, w, 26 * u);
       ctx.fillStyle = COLORS.ink;
@@ -966,7 +999,7 @@ export function createRenderer(canvas, world, images) {
         `${h.def.name}${h.id === localId ? ' (vous)' : ''}${h.team === 'enemy' ? ' ▲' : ''} · hp ${Math.ceil(h.hp)}${h.dead ? ' †' : ''}` +
           ` · cible ${t ? t.def.name : '—'}` +
           (t ? ` · bord-à-bord ${Math.round(edgeDistance(h, t))} / portée ${h.def.auto.range}` : '') +
-          ` · ${h.dead ? 'mort' : h.moveTarget ? 'déplacement' : h.swing ? 'attaque ' + Math.round(h.swing.t) + ' ms' : 'immobile'}`,
+          ` · ${h.dead ? 'mort' : h.moveTarget || h.steer ? 'déplacement' : h.swing ? 'attaque ' + Math.round(h.swing.t) + ' ms' : 'immobile'}`,
       );
     }
     ctx.save();

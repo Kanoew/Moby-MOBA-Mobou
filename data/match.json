@@ -126,7 +126,8 @@
       "sprite": {
         "family": "cerbere",
         "scale": 0.837
-      }
+      },
+      "gold": 250
     },
     "gnome": {
       "kind": "minion",
@@ -154,7 +155,8 @@
       "sprite": {
         "family": "gnome",
         "scale": 0.42
-      }
+      },
+      "gold": 20
     },
     "troll": {
       "kind": "minion",
@@ -182,7 +184,8 @@
       "sprite": {
         "family": "troll",
         "scale": 0.62
-      }
+      },
+      "gold": 45
     },
     "fleur-large": {
       "kind": "monster",
@@ -206,7 +209,8 @@
       "sprite": {
         "family": "fleur",
         "scale": 0.55
-      }
+      },
+      "gold": 70
     },
     "fleur-small": {
       "kind": "monster",
@@ -230,7 +234,8 @@
       "sprite": {
         "family": "fleur",
         "scale": 0.33
-      }
+      },
+      "gold": 35
     },
     "dragon-large": {
       "kind": "monster",
@@ -254,7 +259,8 @@
       "sprite": {
         "family": "dragon",
         "scale": 0.59
-      }
+      },
+      "gold": 70
     },
     "dragon-small": {
       "kind": "monster",
@@ -278,7 +284,8 @@
       "sprite": {
         "family": "dragon",
         "scale": 0.35
-      }
+      },
+      "gold": 35
     }
   },
   "progression": {
@@ -583,5 +590,13 @@
         }
       }
     }
+  },
+  "recall": {
+    "durationMs": 3600
+  },
+  "economy": {
+    "killGold": 200,
+    "assistGold": 80,
+    "shopRadius": 230
   }
 }

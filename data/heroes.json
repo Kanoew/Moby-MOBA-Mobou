@@ -173,6 +173,74 @@
           "orbitFrames": 24,
           "orbitPeriodMs": 900
         }
+      },
+      "recall": {
+        "sheet": "assets/yeji/recall.png",
+        "cell": [
+          640,
+          640
+        ],
+        "anchor": [
+          320,
+          600
+        ],
+        "scaleRelativeToCompanion": 0.653,
+        "directions": {
+          "right": 0,
+          "left": 1,
+          "front": 2,
+          "back": 3
+        },
+        "sequence": [
+          {
+            "frame": 0,
+            "durationMs": 300
+          },
+          {
+            "frame": 1,
+            "durationMs": 250
+          },
+          {
+            "frame": 2,
+            "durationMs": 250
+          },
+          {
+            "frame": 3,
+            "durationMs": 250
+          },
+          {
+            "frame": 4,
+            "durationMs": 250
+          },
+          {
+            "frame": 3,
+            "durationMs": 250
+          },
+          {
+            "frame": 2,
+            "durationMs": 250
+          },
+          {
+            "frame": 1,
+            "durationMs": 250
+          },
+          {
+            "frame": 3,
+            "durationMs": 250
+          },
+          {
+            "frame": 4,
+            "durationMs": 250
+          },
+          {
+            "frame": 2,
+            "durationMs": 250
+          },
+          {
+            "frame": 5,
+            "durationMs": 800
+          }
+        ]
       }
     },
     "abilities": {
@@ -238,7 +306,8 @@
         ],
         "lockMs": 240,
         "zoneStartMs": 160,
-        "followsCaster": true
+        "followsCaster": true,
+        "primary": "slow"
       }
     }
   },
@@ -414,6 +483,85 @@
             85
           ]
         }
+      },
+      "recall": {
+        "sheet": "assets/jennie/recall.png",
+        "cell": [
+          320,
+          320
+        ],
+        "anchor": [
+          104,
+          284
+        ],
+        "scaleRelativeToCompanion": 0.89,
+        "mirrorLeft": true,
+        "sequence": [
+          {
+            "frame": 0,
+            "durationMs": 180
+          },
+          {
+            "frame": 1,
+            "durationMs": 190
+          },
+          {
+            "frame": 2,
+            "durationMs": 240
+          },
+          {
+            "frame": 3,
+            "durationMs": 190
+          },
+          {
+            "frame": 4,
+            "durationMs": 190
+          },
+          {
+            "frame": 5,
+            "durationMs": 220
+          },
+          {
+            "frame": 6,
+            "durationMs": 290
+          },
+          {
+            "frame": 7,
+            "durationMs": 300
+          },
+          {
+            "frame": 0,
+            "durationMs": 180
+          },
+          {
+            "frame": 1,
+            "durationMs": 190
+          },
+          {
+            "frame": 2,
+            "durationMs": 240
+          },
+          {
+            "frame": 3,
+            "durationMs": 190
+          },
+          {
+            "frame": 4,
+            "durationMs": 190
+          },
+          {
+            "frame": 5,
+            "durationMs": 220
+          },
+          {
+            "frame": 6,
+            "durationMs": 290
+          },
+          {
+            "frame": 7,
+            "durationMs": 300
+          }
+        ]
       }
     },
     "abilities": {
@@ -480,7 +628,8 @@
           "everyMs": 600
         },
         "lockMs": 665,
-        "spawnMs": 180
+        "spawnMs": 180,
+        "primary": "burst"
       }
     }
   },
@@ -629,6 +778,101 @@
           "fadeOutMs": 180,
           "pulsePeriodMs": 1000
         }
+      },
+      "recall": {
+        "sheet": "assets/sweetie/recall.png",
+        "cell": [
+          384,
+          344
+        ],
+        "anchor": [
+          175,
+          292
+        ],
+        "scaleRelativeToCompanion": 0.815,
+        "mirrorLeft": true,
+        "sequence": [
+          {
+            "frame": 0,
+            "durationMs": 240
+          },
+          {
+            "frame": 1,
+            "durationMs": 160
+          },
+          {
+            "frame": 2,
+            "durationMs": 200
+          },
+          {
+            "frame": 3,
+            "durationMs": 150
+          },
+          {
+            "frame": 4,
+            "durationMs": 160
+          },
+          {
+            "frame": 5,
+            "durationMs": 200
+          },
+          {
+            "frame": 6,
+            "durationMs": 180
+          },
+          {
+            "frame": 1,
+            "durationMs": 160
+          },
+          {
+            "frame": 2,
+            "durationMs": 200
+          },
+          {
+            "frame": 3,
+            "durationMs": 150
+          },
+          {
+            "frame": 4,
+            "durationMs": 160
+          },
+          {
+            "frame": 5,
+            "durationMs": 200
+          },
+          {
+            "frame": 6,
+            "durationMs": 180
+          },
+          {
+            "frame": 1,
+            "durationMs": 160
+          },
+          {
+            "frame": 2,
+            "durationMs": 200
+          },
+          {
+            "frame": 3,
+            "durationMs": 150
+          },
+          {
+            "frame": 4,
+            "durationMs": 160
+          },
+          {
+            "frame": 5,
+            "durationMs": 200
+          },
+          {
+            "frame": 6,
+            "durationMs": 180
+          },
+          {
+            "frame": 7,
+            "durationMs": 210
+          }
+        ]
       }
     },
     "abilities": {
@@ -699,7 +943,8 @@
         ],
         "durationMs": 4000,
         "lockMs": 430,
-        "shieldOnMs": 220
+        "shieldOnMs": 220,
+        "primary": "amount"
       }
     }
   }

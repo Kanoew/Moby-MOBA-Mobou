@@ -2,19 +2,192 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>MOBA 3v3 · Lot 3</title>
-  <style>
-    html, body { margin: 0; height: 100%; background: #0b0e15; color: #f4f1e8; font-family: system-ui, sans-serif; overflow: hidden; }
-    #game { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: crosshair; }
-    #status { position: fixed; left: 50%; top: 70px; transform: translateX(-50%); padding: 8px 18px; border-radius: 8px; background: rgba(12,16,26,.88); border: 1px solid #ffd36b; font-weight: 600; }
-    #help { position: fixed; right: 12px; bottom: 6px; font-size: 12px; opacity: .6; max-width: 46vw; text-align: right; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0e15">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Moby MOBA</title>
+  <link rel="icon" href="assets/ui/icon.svg" type="image/svg+xml">
+  <!-- Bloc généré par `npm run bump` : version, carte d'import des modules, manifeste, feuille de style. Ne pas éditer à la main. -->
+  <!--version:start-->
+  <script>window.APP_VERSION = "0.5.0";</script>
+  <script type="importmap">{
+  "imports": {
+    "./src/input/pointer.js": "./src/input/pointer.js?v=0.5.0",
+    "./src/main.js": "./src/main.js?v=0.5.0",
+    "./src/render/animator.js": "./src/render/animator.js?v=0.5.0",
+    "./src/render/renderer.js": "./src/render/renderer.js?v=0.5.0",
+    "./src/sim/abilities.js": "./src/sim/abilities.js?v=0.5.0",
+    "./src/sim/bot.js": "./src/sim/bot.js?v=0.5.0",
+    "./src/sim/jungle.js": "./src/sim/jungle.js?v=0.5.0",
+    "./src/sim/path.js": "./src/sim/path.js?v=0.5.0",
+    "./src/sim/progression.js": "./src/sim/progression.js?v=0.5.0",
+    "./src/sim/recall.js": "./src/sim/recall.js?v=0.5.0",
+    "./src/sim/shop.js": "./src/sim/shop.js?v=0.5.0",
+    "./src/sim/world.js": "./src/sim/world.js?v=0.5.0",
+    "./src/ui/hud.js": "./src/ui/hud.js?v=0.5.0",
+    "./src/ui/profile.js": "./src/ui/profile.js?v=0.5.0",
+    "./src/ui/scoreboard.js": "./src/ui/scoreboard.js?v=0.5.0",
+    "./src/ui/screens.js": "./src/ui/screens.js?v=0.5.0",
+    "./src/ui/sound.js": "./src/ui/sound.js?v=0.5.0",
+    "./src/ui/touch.js": "./src/ui/touch.js?v=0.5.0"
+  }
+}</script>
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.0">
+  <link rel="stylesheet" href="styles/ui.css?v=0.5.0">
+  <!--version:end-->
 </head>
 <body>
-  <canvas id="game"></canvas>
-  <div id="status" hidden></div>
-  <div id="help">Clic : déplacer / verrouiller · Q : visée de la compétence (clic ou Q pour lancer, Échap annule) · R : ultime · 1 / 2 : +auto / +skill · S : stop · D : debug · N : rejouer</div>
-  <script type="module" src="src/main.js"></script>
+  <div id="app" data-screen="home">
+
+    <!-- ===== ACCUEIL ===== -->
+    <section id="screen-home" class="screen" aria-label="Accueil">
+      <div class="bg-art" aria-hidden="true"></div>
+      <header class="brand">
+        <h1>Moby <span>MOBA</span></h1>
+        <p class="tagline">3 contre 3 · parties de 10 minutes maximum</p>
+      </header>
+      <nav class="menu" aria-label="Menu principal">
+        <button class="btn btn-primary btn-xl" id="btn-play" type="button">Jouer</button>
+        <button class="btn btn-lg" id="btn-characters" type="button">Personnages</button>
+        <button class="btn btn-lg" id="btn-shop" type="button">Boutique</button>
+      </nav>
+      <footer class="home-foot">
+        <span class="chip" title="Personnage choisi"><span class="chip-label">Héros</span> <b id="home-hero">—</b></span>
+        <span class="chip coins" title="Éclats"><i class="coin" aria-hidden="true"></i><b id="home-coins">0</b></span>
+        <span class="chip version" id="version-label">v—</span>
+      </footer>
+    </section>
+
+    <!-- ===== PERSONNAGES ===== -->
+    <section id="screen-characters" class="screen" aria-label="Personnages">
+      <header class="topbar">
+        <button class="btn btn-back" type="button" data-go="home">← Accueil</button>
+        <h2>Personnages</h2>
+        <span class="chip coins"><i class="coin" aria-hidden="true"></i><b data-bind="coins">0</b></span>
+      </header>
+      <div class="split">
+        <div id="char-grid" class="grid" role="list"></div>
+        <aside id="char-detail" class="detail" aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <!-- ===== BOUTIQUE ===== -->
+    <section id="screen-shop" class="screen" aria-label="Boutique">
+      <header class="topbar">
+        <button class="btn btn-back" type="button" data-go="home">← Accueil</button>
+        <h2>Boutique</h2>
+        <span class="chip coins"><i class="coin" aria-hidden="true"></i><b data-bind="coins">0</b></span>
+      </header>
+      <div id="shop-grid" class="grid shop" role="list"></div>
+      <p id="shop-note" class="note">Les Éclats se gagnent en jouant. Aucun paiement réel dans cette version.</p>
+    </section>
+
+    <!-- ===== PARTIE ===== -->
+    <section id="screen-game" class="screen game" aria-label="Partie">
+      <canvas id="game"></canvas>
+
+      <!-- Commandes tactiles (affichées sur écran tactile uniquement). Le style est dans styles/ui.css. -->
+      <div id="touch" hidden>
+        <div id="stick-zone"><div id="stick-base"><div id="stick-knob"></div></div></div>
+        <div id="action-pad">
+          <button id="btn-ult" class="act act-ult" type="button" data-slot="ult" aria-label="Ultime">
+            <span class="key">R</span><span class="name"></span><span class="cd-num"></span><span class="lock-note"></span>
+          </button>
+          <button id="btn-skill" class="act act-skill" type="button" data-slot="skill" aria-label="Compétence">
+            <span class="key">Q</span><span class="name"></span><span class="cd-num"></span><span class="lock-note"></span>
+            <span class="pips" aria-hidden="true"><i></i><i></i><i></i></span>
+          </button>
+          <button id="btn-attack" class="act act-attack" type="button" data-slot="attack" aria-label="Attaque">
+            <span class="name">Attaque</span>
+            <span class="pips" aria-hidden="true"><i></i><i></i><i></i></span>
+          </button>
+          <button id="plus-skill" class="plus plus-skill" type="button" aria-label="Améliorer la compétence">+</button>
+          <button id="plus-attack" class="plus plus-attack" type="button" aria-label="Améliorer l'attaque">+</button>
+        </div>
+      </div>
+
+      <!-- Lot 4 : boutons de partie, inventaire, boutique, scores. Identifiants listés dans docs/ui-guide.md. -->
+      <div id="hud-buttons">
+        <button id="btn-scores" class="hud-btn" type="button">Scores</button>
+        <button id="btn-shop-open" class="hud-btn" type="button">Boutique</button>
+        <button id="btn-recall" class="hud-btn" type="button">Rappel</button>
+      </div>
+      <div id="inventory">
+        <button id="inv-gold" class="gold" type="button" aria-label="Ouvrir la boutique"><i class="coin" aria-hidden="true"></i><b id="gold-val">0</b><span id="gold-gain"></span></button>
+        <div id="inv-slots" class="slots"></div>
+      </div>
+      <div id="hud-toast" hidden></div>
+
+      <div id="shop" class="sheet" hidden>
+        <div id="shop-backdrop" class="backdrop"></div>
+        <div class="panel shop-panel" role="dialog" aria-label="Boutique">
+          <header class="panel-head">
+            <h2>Boutique</h2>
+            <div id="shop-tabs" class="tabs" role="tablist">
+              <button type="button" role="tab" data-family="physique">Physique</button>
+              <button type="button" role="tab" data-family="tank">Tank</button>
+              <button type="button" role="tab" data-family="magique">Magique</button>
+            </div>
+            <span class="chip coins" title="Or"><i class="coin" aria-hidden="true"></i><b id="shop-gold">0</b></span>
+            <button id="shop-close" class="close-btn" type="button" aria-label="Fermer">✕</button>
+          </header>
+          <p id="shop-where" class="where"></p>
+          <div class="shop-body">
+            <div id="shop-list" class="shop-list" role="list"></div>
+            <div id="shop-detail" class="shop-detail"></div>
+          </div>
+        </div>
+      </div>
+      <div id="scores" class="sheet" hidden>
+        <div id="scores-backdrop" class="backdrop"></div>
+        <div class="panel scores-panel" role="dialog" aria-label="Tableau des scores">
+          <header class="panel-head"><h2>Scores</h2><span class="hint">Maintenir Tab · toucher le score en haut</span></header>
+          <div id="scores-body" class="score-table"></div>
+        </div>
+      </div>
+
+      <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause">❚❚</button>
+      <div id="status" hidden></div>
+      <div id="help"></div>
+
+      <div id="pause" class="overlay" hidden>
+        <div class="dialog">
+          <h2>Pause</h2>
+          <button class="btn btn-primary" id="btn-resume" type="button">Reprendre</button>
+          <button class="btn" id="btn-sound" type="button">Son : activé</button>
+          <button class="btn" id="btn-quit" type="button">Quitter la partie</button>
+        </div>
+      </div>
+      <div id="endcard" class="overlay" hidden>
+        <div class="dialog">
+          <h2 id="end-title">Victoire</h2>
+          <p id="end-sub"></p>
+          <div id="end-table" class="score-table"></div>
+          <p class="reward"><i class="coin" aria-hidden="true"></i> <b id="end-reward">+0</b> Éclats</p>
+          <button class="btn btn-primary" id="btn-again" type="button">Rejouer</button>
+          <button class="btn" id="btn-menu" type="button">Accueil</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Verrouillage du mode paysage : visible sur mobile tenu en portrait, la partie est alors en pause. -->
+    <div id="rotate" class="overlay rotate" hidden>
+      <div class="dialog">
+        <div class="phone" aria-hidden="true"></div>
+        <h2>Tournez votre appareil</h2>
+        <p>Moby MOBA se joue en mode paysage.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloc généré par `npm run bump` : script d'entrée versionné. -->
+  <!--entry:start-->
+  <script type="module" src="src/main.js?v=0.5.0"></script>
+  <!--entry:end-->
 </body>
 </html>

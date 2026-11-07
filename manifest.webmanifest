@@ -1,0 +1,10 @@
+{
+  "name": "Moby MOBA 3v3",
+  "short_name": "Moby MOBA",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b0e15",
+  "theme_color": "#0b0e15",
+  "icons": [{ "src": "assets/ui/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
