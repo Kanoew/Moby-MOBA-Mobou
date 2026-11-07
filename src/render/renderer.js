@@ -26,9 +26,12 @@ export function loadImages(paths) {
       (src) =>
         new Promise((resolve, reject) => {
           const img = new Image();
-          img.onload = () => {
-            out[src] = img;
-            resolve();
+          img.onload = async () => {
+            try {
+              await img.decode(); // éviter le premier décodage d'une planche au lancement de l'ultime
+              out[src] = img;
+              resolve();
+            } catch (error) { reject(error); }
           };
           img.onerror = () => reject(new Error(`image introuvable : ${src}`));
           img.src = window.APP_VERSION ? `${src}?v=${window.APP_VERSION}` : src; // numéro de version : force le rafraîchissement du cache
@@ -63,7 +66,7 @@ const fmtClock = (ms) => {
 };
 
 export function createRenderer(canvas, world, images, opts = {}) {
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d');
   const clocks = new Map(); // unité → { state, since }
   const floaters = [];
   let debug = false;
@@ -104,7 +107,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
   const localTeamOf = () => (getUnit(world, localId_) ? getUnit(world, localId_).team : 'ally');
 
   function view(localId) {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(2, window.devicePixelRatio || 1); // limiter le coût GPU des écrans mobiles à densité élevée
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
@@ -152,7 +155,24 @@ export function createRenderer(canvas, world, images, opts = {}) {
 
   /* ------------------------------- terrain ------------------------------- */
 
+  let groundCache = null;
+  let groundPhase = null;
   function drawGround() {
+    const phase = !world.match || world.time >= world.match.spawnOpenMs;
+    if (!groundCache || phase !== groundPhase) {
+      groundCache = document.createElement('canvas');
+      groundCache.width = Math.ceil(world.map.width / 2);
+      groundCache.height = Math.ceil(world.map.height / 2);
+      const output = ctx;
+      ctx = groundCache.getContext('2d');
+      ctx.scale(0.5, 0.5);
+      try { paintGround(); } finally { ctx = output; }
+      groundPhase = phase;
+    }
+    ctx.drawImage(groundCache, 0, 0, world.map.width, world.map.height);
+  }
+
+  function paintGround() {
     const { width, height, obstacles } = world.map;
     ctx.fillStyle = COLORS.ground;
     ctx.fillRect(0, 0, width, height);

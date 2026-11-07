@@ -6,7 +6,7 @@
       "hp": 700,
       "atk": 60,
       "def": 30,
-      "speed": 300,
+      "speed": 336,
       "radius": 26
     },
     "auto": {
@@ -249,8 +249,8 @@
         "kind": "dash",
         "cooldownMs": [
           5000,
-          5000,
-          5000
+          4500,
+          4000
         ],
         "range": [
           340,
@@ -318,7 +318,7 @@
       "hp": 520,
       "atk": 48,
       "def": 15,
-      "speed": 290,
+      "speed": 325,
       "radius": 26
     },
     "auto": {
@@ -570,8 +570,8 @@
         "kind": "fan",
         "cooldownMs": [
           5000,
-          5000,
-          5000
+          4500,
+          4000
         ],
         "count": 3,
         "anglesDeg": [
@@ -640,7 +640,7 @@
       "hp": 820,
       "atk": 55,
       "def": 45,
-      "speed": 280,
+      "speed": 314,
       "radius": 28
     },
     "auto": {
@@ -881,8 +881,8 @@
         "kind": "dash",
         "cooldownMs": [
           5000,
-          5000,
-          5000
+          4500,
+          4000
         ],
         "range": [
           260,
