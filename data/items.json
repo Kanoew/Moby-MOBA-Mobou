@@ -17,12 +17,15 @@
       "family": "physique",
       "starter": true,
       "priceGold": 250,
-      "description": "+8 dégâts bruts aux attaques de base.",
+      "description": "+10 Attaque (autos et compétences). +8 dégâts bruts aux attaques de base.",
       "effect": {
         "type": "basicAttackBonus",
         "flatDamage": 8
       },
-      "icon": "assets/items/lame-courte.png"
+      "icon": "assets/items/lame-courte.png",
+      "stats": {
+        "attack": 10
+      }
     },
     {
       "id": "dague-ouverture",
@@ -30,13 +33,16 @@
       "family": "physique",
       "starter": false,
       "priceGold": 850,
-      "description": "La première auto après 5 s hors combat inflige +24 dégâts bruts.",
+      "description": "+24 Attaque (autos et compétences). La première auto après 5 s hors combat inflige +24 dégâts bruts.",
       "effect": {
         "type": "openingBasicAttack",
         "outOfCombatMs": 5000,
         "flatDamage": 24
       },
-      "icon": "assets/items/dague-ouverture.png"
+      "icon": "assets/items/dague-ouverture.png",
+      "stats": {
+        "attack": 24
+      }
     },
     {
       "id": "gants-duel",
@@ -44,13 +50,16 @@
       "family": "physique",
       "starter": false,
       "priceGold": 950,
-      "description": "Chaque troisième auto consécutive sur la même cible inflige +30 dégâts bruts.",
+      "description": "+22 Attaque (autos et compétences). Chaque troisième auto consécutive sur la même cible inflige +30 dégâts bruts.",
       "effect": {
         "type": "sameTargetBasicAttack",
         "hitCount": 3,
         "flatDamage": 30
       },
-      "icon": "assets/items/gants-duel.png"
+      "icon": "assets/items/gants-duel.png",
+      "stats": {
+        "attack": 22
+      }
     },
     {
       "id": "marteau-siege",
@@ -58,13 +67,16 @@
       "family": "physique",
       "starter": false,
       "priceGold": 1000,
-      "description": "+25 % de dégâts d’auto contre les tours.",
+      "description": "+28 Attaque (autos et compétences). +25 % de dégâts d’auto contre les tours.",
       "effect": {
         "type": "structureBasicAttackBonus",
         "targetType": "tower",
         "bonusRatio": 0.25
       },
-      "icon": "assets/items/marteau-siege.png"
+      "icon": "assets/items/marteau-siege.png",
+      "stats": {
+        "attack": 28
+      }
     },
     {
       "id": "ceinture",
@@ -131,13 +143,16 @@
       "family": "magique",
       "starter": true,
       "priceGold": 250,
-      "description": "+12 dégâts bruts sur le premier impact du skill offensif pour chaque cible et chaque lancement.",
+      "description": "+8 Attaque (autos et compétences). +12 dégâts bruts sur le premier impact du skill offensif pour chaque cible et chaque lancement.",
       "effect": {
         "type": "offensiveSkillBonus",
         "flatDamage": 12,
         "oncePerTargetPerCast": true
       },
-      "icon": "assets/items/grimoire.png"
+      "icon": "assets/items/grimoire.png",
+      "stats": {
+        "attack": 8
+      }
     },
     {
       "id": "catalyseur",
@@ -145,12 +160,15 @@
       "family": "magique",
       "starter": false,
       "priceGold": 850,
-      "description": "Réduit de 15 % le temps de recharge du skill.",
+      "description": "+14 Attaque (autos et compétences). Réduit de 15 % le temps de recharge du skill.",
       "effect": {
         "type": "skillCooldownReduction",
         "reductionRatio": 0.15
       },
-      "icon": "assets/items/catalyseur.png"
+      "icon": "assets/items/catalyseur.png",
+      "stats": {
+        "attack": 14
+      }
     },
     {
       "id": "relique",
@@ -158,12 +176,15 @@
       "family": "magique",
       "starter": false,
       "priceGold": 1050,
-      "description": "Renforce de 15 % la valeur principale de l’ultime, par exemple les dégâts, le bouclier ou la force du ralentissement.",
+      "description": "+18 Attaque (autos et compétences). Renforce de 15 % la valeur principale de l’ultime, par exemple les dégâts, le bouclier ou la force du ralentissement.",
       "effect": {
         "type": "ultimatePrimaryValueBonus",
         "bonusRatio": 0.15
       },
-      "icon": "assets/items/relique.png"
+      "icon": "assets/items/relique.png",
+      "stats": {
+        "attack": 18
+      }
     },
     {
       "id": "sceau",
@@ -171,13 +192,16 @@
       "family": "magique",
       "starter": false,
       "priceGold": 1000,
-      "description": "Quand le skill touche un héros ennemi, retire 20 % de sa recharge restante. Une fois par lancement.",
+      "description": "+16 Attaque (autos et compétences). Quand le skill touche un héros ennemi, retire 20 % de sa recharge restante. Une fois par lancement.",
       "effect": {
         "type": "skillHitCooldownRefund",
         "remainingReductionRatio": 0.2,
         "oncePerCast": true
       },
-      "icon": "assets/items/sceau.png"
+      "icon": "assets/items/sceau.png",
+      "stats": {
+        "attack": 16
+      }
     }
   ]
 }

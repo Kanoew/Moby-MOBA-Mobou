@@ -201,6 +201,8 @@ export function createHud({ issue, getGame, localId, heroDefs }) {
     p.append(el('b', '', String(owned ? sellValue(w, it) : it.priceGold)));
     facts.append(g, p);
     els.detail.append(facts);
+    const bonus = it.stats?.attack || 0;
+    els.detail.append(el('p', 'desc', `Attaque : ${h.atk}${bonus ? ` → ${h.atk + (owned ? -bonus : bonus)} après ${owned ? 'revente' : 'achat'}` : ''} · Défense : ${h.def_}`));
     const r = owned ? checkSell(w, h, it.id) : checkBuy(w, h, it.id);
     const label = locked ? (lastAction === 'sell' ? 'Revendu ✓' : 'Acheté ✓') : owned ? `Revendre (+${sellValue(w, it)})` : `Acheter (${it.priceGold})`;
     const act = el('button', `btn ${owned && !locked ? '' : 'btn-primary'}`, label);

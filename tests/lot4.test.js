@@ -417,7 +417,7 @@ test('Grimoire : +12 sur le premier impact du skill par cible et par lancer (tro
   const book = trial(w2, true);
   assert.equal(plain.length, 3);
   assert.equal(book.length, 3, 'trois bouquets touchent la cible');
-  assert.equal(book.reduce((x, y) => x + y, 0) - plain.reduce((x, y) => x + y, 0), 12, 'bonus compté une seule fois');
+  assert.equal(book.reduce((x, y) => x + y, 0) - plain.reduce((x, y) => x + y, 0), 12 + 3 * (mitigate(20 + getUnit(w2, 'a').atk * 0.4, 0) - mitigate(20 + getUnit(wPlain, 'a').atk * 0.4, 0)), 'passif unique et Attaque sur chacun des trois bouquets');
 });
 
 test('Grimoire : une fois par cible avec le dash de Yeji', () => {
@@ -486,7 +486,7 @@ test('Relique : +15 % sur la valeur principale de chaque ultime (ralentissement,
     run(wj, 300);
     return wj.zones[0].burst;
   };
-  assert.ok(Math.abs(burstOf(true) / burstOf(false) - 1.15) < 1e-9);
+  assert.ok(Math.abs(burstOf(true) / (burstOf(false) + 18 * 0.6) - 1.15) < 1e-9);
 });
 
 test('Sceau : un héros touché retire 20 % de la recharge restante, une fois par lancer ; pas sur un sbire', () => {
@@ -738,4 +738,24 @@ test('scores : les six lignes se mettent à jour en match et restent figées à 
   for (let i = 0; i < 50; i++) step(w, DT);
   assert.equal(JSON.stringify(scoreRows(w, 'a0')), frozen, 'figées une fois la partie terminée');
   assert.equal(scoreRows(w, 'a0').teams.reduce((n, t) => n + t.rows.length, 0), 6);
+});
+
+
+test('équipement offensif : bonus permanent cumulatif, progression et revente sans résidu', () => {
+  const w = mk();
+  const a = getUnit(w, 'a');
+  const base = a.atk;
+  buyAt(w, 'a', 'dague-ouverture');
+  assert.equal(a.atk, base + 24);
+  buyAt(w, 'a', 'gants-duel');
+  assert.equal(a.atk, base + 46);
+  assert.equal(buyItem(w, a, 'gants-duel').ok, false);
+  assert.equal(a.atk, base + 46, 'un achat refusé ne cumule pas les bonus');
+  levelTo(w, 'a', 3);
+  const levelBase = Math.round(base * 1.12);
+  assert.equal(a.atk, levelBase + 46, 'les bonus fixes ne sont pas multipliés par le niveau');
+  assert.equal(sellItem(w, a, 'dague-ouverture').ok, true);
+  assert.equal(a.atk, levelBase + 22);
+  assert.equal(sellItem(w, a, 'gants-duel').ok, true);
+  assert.equal(a.atk, levelBase);
 });

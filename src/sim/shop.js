@@ -7,7 +7,7 @@ import { emit } from './world.js';
 import { refreshStats } from './progression.js';
 
 export function emptyFx() {
-  return { autoFlat: 0, opener: null, duel: null, structure: 0, hp: 0, def: 0, talisman: null, armor: null, grimoire: 0, cdReduction: 0, ultBonus: 0, seal: 0 };
+  return { atk: 0, autoFlat: 0, opener: null, duel: null, structure: 0, hp: 0, def: 0, talisman: null, armor: null, grimoire: 0, cdReduction: 0, ultBonus: 0, seal: 0 };
 }
 
 export const catalog = (world) => (world.match && world.match.items ? world.match.items : null);
@@ -92,6 +92,7 @@ export function recomputeItems(world, hero) {
   for (const id of hero.items) {
     const it = id ? itemDef(world, id) : null;
     if (!it) continue;
+    fx.atk += it.stats?.attack || 0;
     const e = it.effect;
     switch (e.type) {
       case 'basicAttackBonus': fx.autoFlat += e.flatDamage; break;

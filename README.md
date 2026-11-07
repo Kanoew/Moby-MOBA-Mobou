@@ -6,6 +6,16 @@ Trois compagnons jouables, mêmes des deux côtés : **Yeji** (katana, mêlée r
 
 Aucune dépendance : un navigateur récent et Node ≥ 20.
 
+## Ajustements 0.8.0 : équipement, rythme et rendu
+
+Les objets offensifs ajoutent maintenant de l'Attaque permanente, utilisée par les autos et les coefficients des compétences : Lame courte +10, Dague +24, Gants +22, Marteau +28, Grimoire +8, Catalyseur +14, Relique +18, Sceau +16. Ces statistiques s'ajoutent aux passifs déjà décrits ci-dessous. Elles se cumulent entre objets différents et disparaissent à la revente. La boutique affiche l'Attaque actuelle et sa valeur après achat/revente. Prix et règles d'achat restent identiques.
+
+Les déplacements des trois héros sont accélérés de 12 % (Yeji 336, Jennie 325, Sweetie 314). Les compétences se rechargent en 5 / 4,5 / 4 secondes selon leur rang ; les ultimes restent à 45 secondes. Il s'agit d'une première passe d'équilibrage, à éprouver en partie.
+
+Le terrain statique est mis en cache et reconstruit à l'ouverture des bases. Les images sont décodées avant l'entrée en jeu et la densité de rendu Canvas est plafonnée à 2, pour réduire la charge sur les écrans denses sans modifier les coordonnées tactiles. Les interfaces HTML conservent leur résolution native.
+
+Mesure Chromium à 844×390, écran DPR 3, trois ultimes simultanés sur 180 étapes : temps CPU simulation + soumission du dessin médian 11,9 → 6,4 ms ; p95 14,7 → 9,9 ms. Ce microbenchmark synchrone ne mesure ni la cadence présentée à l'écran ni le GPU d'un téléphone physique. La première image reste plus coûteuse (construction du cache).
+
 ## Lancer
 
 ```bash
