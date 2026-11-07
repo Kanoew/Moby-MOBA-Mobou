@@ -37,6 +37,39 @@ export function nearestEnemyInRange(world, hero) {
 }
 
 /**
+ * Bouton d'attaque (auto-cible) : garde le verrou en cours s'il est valide et pas trop loin ; sinon prend l'ennemi
+ * le plus pertinent dans le rayon d'assistance, les héros d'abord, puis sbires et monstres, puis structures.
+ * Contrairement à l'ancien comportement, il n'exige plus qu'une cible soit déjà à portée d'attaque.
+ */
+export function pickAttackTarget(world, hero, radius) {
+  const assist = world.match && world.match.attackAssist ? world.match.attackAssist : { radius: 700, maxChase: 900 };
+  const R = radius ?? assist.radius;
+  const cur = hero.targetId !== null ? world.byId.get(hero.targetId) : null;
+  if (cur && isTargetable(world, hero, cur) && Math.hypot(cur.x - hero.x, cur.y - hero.y) <= assist.maxChase) return cur;
+  const best = { hero: null, unit: null, structure: null };
+  const bestD = { hero: Infinity, unit: Infinity, structure: Infinity };
+  for (const u of world.units) {
+    if (!isTargetable(world, hero, u)) continue;
+    const d = edgeDistance(hero, u);
+    if (d > R) continue;
+    const k = u.kind === 'hero' ? 'hero' : u.kind === 'tower' || u.kind === 'core' ? 'structure' : 'unit';
+    if (d < bestD[k]) {
+      best[k] = u;
+      bestD[k] = d;
+    }
+  }
+  return best.hero || best.unit || best.structure;
+}
+
+/** Action du bouton d'attaque (et de la touche A) : ordre « attaquer » sur la meilleure cible, sinon message. */
+export function attackAction(world, hero, issue, notify) {
+  const t = pickAttackTarget(world, hero);
+  if (t) return issue({ type: 'attack', targetId: t.id });
+  if (notify) notify('Aucun ennemi proche');
+  return false;
+}
+
+/**
  * Cible pour une compétence lancée d'un simple appui : verrou en cours, sinon ennemi le plus proche
  * dans `reach` (centre à centre), sinon la direction du regard.
  */
@@ -112,18 +145,13 @@ export function bindTouchControls(els, api) {
   els.zone.addEventListener('pointerup', release);
   els.zone.addEventListener('pointercancel', release);
 
-  // --- Attaque : verrou existant, sinon l'ennemi le plus proche à portée ---
+  // --- Attaque : auto-cible directe. Verrou en cours, sinon meilleur ennemi proche ; le héros s'en approche ---
   els.attack.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     if (!api.enabled()) return;
-    const hero = api.hero();
-    const w = api.world();
-    const current = hero.targetId !== null ? w.byId.get(hero.targetId) : null;
-    if (current && isTargetable(w, hero, current)) return; // le verrou tient : les autos reprennent seules à portée
-    const t = nearestEnemyInRange(w, hero);
-    if (t) api.issue({ type: 'target', targetId: t.id });
-    els.attack.classList.add('pulse');
-    setTimeout(() => els.attack.classList.remove('pulse'), 160);
+    const ok = attackAction(api.world(), api.hero(), api.issue, api.notify);
+    els.attack.classList.add(ok ? 'pulse' : 'miss');
+    setTimeout(() => els.attack.classList.remove('pulse', 'miss'), 180);
   });
 
   // --- Compétence : appui = visée automatique ; glisser = viser, relâcher = lancer ---

@@ -1,7 +1,7 @@
 // Bots : n'utilisent que issueCommand, exactement comme le joueur.
 // Duel : approche l'ennemi le plus proche. Match : tient une ligne, suit ses sbires, évite les tours
 // sans couverture de sbires, se replie à bas PV et revient en jeu après la réapparition.
-import { edgeDistance, getUnit, isTargetable, issueCommand, otherTeam, TEAM_ALLY } from './world.js';
+import { edgeDistance, getUnit, isTargetable, isVulnerable, issueCommand, otherTeam, TEAM_ALLY } from './world.js';
 import { canCast } from './abilities.js';
 import { checkBuy, inShopZone, itemDef, sellValue } from './shop.js';
 
@@ -78,13 +78,139 @@ function towerHasCover(world, hero, tower) {
   return world.units.some((u) => u.kind === 'minion' && !u.dead && u.team === hero.team && edgeDistance(tower, u) <= range);
 }
 
+const alliesOf = (world, hero) => world.heroes.filter((h) => h.team === hero.team && !h.dead && h.id !== hero.id);
+
+/** Deux héros en forme au pied d'une tour se partagent ses tirs : on accepte alors de s'y exposer (plongée à deux). */
+function diveOk(world, hero, tw) {
+  if (hero.hp / hero.maxHp < 0.6) return false;
+  return alliesOf(world, hero).some((a) => a.hp / a.maxHp >= 0.6 && Math.hypot(a.x - tw.x, a.y - tw.y) < tw.def.auto.range + 160);
+}
+
 /** Peut-on se tenir en p sans attirer les tirs d'une tour sans couverture ? */
 function safeAt(world, hero, p) {
   for (const tw of enemyTowers(world, hero)) {
     const reach = Math.hypot(p.x - tw.x, p.y - tw.y) - tw.radius - hero.radius;
-    if (reach <= tw.def.auto.range + 30 && !towerHasCover(world, hero, tw)) return false;
+    if (reach <= tw.def.auto.range + 30 && !towerHasCover(world, hero, tw) && !diveOk(world, hero, tw)) return false;
   }
   return true;
+}
+
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const l2 = dx * dx + dy * dy;
+  const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+/** Ligne dont le tracé passe le plus près du point (à moins de 500 px), sinon null. */
+function laneOfPoint(world, x, y) {
+  let best = null;
+  let bd = 500;
+  for (const [name, L] of Object.entries(world.map.lanes)) {
+    for (let i = 0; i < L.points.length - 1; i++) {
+      const d = distToSegment(x, y, L.points[i][0], L.points[i][1], L.points[i + 1][0], L.points[i + 1][1]);
+      if (d < bd) {
+        bd = d;
+        best = name;
+      }
+    }
+  }
+  return best;
+}
+
+/** Tracé d'une ligne orienté de notre base vers la base adverse. */
+function lanePathFor(world, hero, lane) {
+  const pts = world.map.lanes[lane].points.map(([x, y]) => ({ x, y }));
+  return hero.team === TEAM_ALLY ? pts : pts.reverse();
+}
+
+/** Point le plus avancé de la ligne où l'on reste hors de portée des tours sans couverture. */
+function forwardPoint(world, hero, lane) {
+  const pts = lanePathFor(world, hero, lane);
+  let best = null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 60));
+    for (let k = 0; k <= n; k++) {
+      const p = { x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n };
+      if (safeAt(world, hero, p)) best = p;
+      else if (best) return best;
+    }
+  }
+  return best;
+}
+
+/** Un héros humain de notre équipe, s'il y en a un (les bots se règlent sur lui). */
+const humanAlly = (world, hero) => world.heroes.find((h) => h.team === hero.team && !h.dead && h.controller === 'player' && h.id !== hero.id) || null;
+
+/** Cible d'un allié engagé (le joueur en priorité) : on vient l'aider au lieu de rester à l'écart. */
+function assistTarget(world, hero) {
+  let best = null;
+  let bestScore = Infinity;
+  for (const a of alliesOf(world, hero)) {
+    if (a.targetId === null) continue;
+    const t = world.byId.get(a.targetId);
+    if (!t || t.team === 'neutral' || (t.kind !== 'hero' && t.kind !== 'tower' && t.kind !== 'core') || !isTargetable(world, hero, t)) continue;
+    if (Math.hypot(t.x - a.x, t.y - a.y) > a.def.auto.range + 700) continue; // l'allié n'est pas vraiment engagé
+    const human = a.controller === 'player';
+    const dMe = Math.hypot(t.x - hero.x, t.y - hero.y);
+    if (dMe > (human ? 2600 : 1500)) continue;
+    const score = dMe - (human ? 900 : 0);
+    if (score < bestScore) {
+      best = t;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** Un ennemi est « chez nous » s'il se trouve près d'une de nos structures. */
+const intrudes = (world, hero, e) => world.units.some((u) => (u.kind === 'tower' || u.kind === 'core') && u.team === hero.team && !u.dead && Math.hypot(u.x - e.x, u.y - e.y) < 900);
+
+/** Avantage numérique de l'équipe : héros alliés en état de se battre moins héros ennemis en vie. */
+const teamAdvantage = (world, hero) =>
+  world.heroes.filter((h) => h.team === hero.team && !h.dead && h.hp / h.maxHp >= 0.4).length - world.heroes.filter((h) => h.team !== hero.team && !h.dead).length;
+
+/**
+ * Poussée collective : quand l'équipe a l'avantage, tout le monde converge vers la structure ennemie la plus accessible
+ * (tour extérieure, puis intérieure, puis noyau) de la ligne la plus avancée, au lieu de rester dispersé.
+ */
+function pushObjective(world, hero) {
+  if (world.time < 60000 || hero.hp / hero.maxHp < 0.55) return null;
+  // Une poussée lancée dure au moins 30 s, tant que l'avantage n'est pas retourné : le temps d'abattre une tour.
+  const adv = teamAdvantage(world, hero);
+  if (adv >= 1) hero.pushUntil = world.time + 30000;
+  if (!(adv >= 1 || (adv >= 0 && world.time < (hero.pushUntil || 0)))) return null;
+  const enemy = otherTeam(hero.team);
+  let best = null;
+  let bestScore = -Infinity;
+  const hl = humanLaneName(world, hero);
+  for (const lane of Object.keys(world.map.lanes)) {
+    const towers = world.towers.filter((t) => t.team === enemy && t.lane === lane && !t.dead && isVulnerable(world, t));
+    let tw = towers.find((t) => t.tier === 'outer') || towers[0];
+    if (!tw) {
+      const core = world.cores.find((c) => c.team === enemy);
+      if (core && isVulnerable(world, core)) tw = core;
+    }
+    if (!tw) continue;
+    const ms = laneMinions(world, hero, lane);
+    const lead = ms.length ? Math.max(...ms.map((m) => progressOf(world, m))) / world.map.width : 0;
+    const score = lead * 10 - tw.hp / 800 - Math.hypot(hero.x - tw.x, hero.y - tw.y) / 1500 + (hl === lane ? 3 : 0);
+    if (score > bestScore) {
+      best = { tw, lane };
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** Combat à nombre inégal : on évite d'aller seul contre plusieurs, sauf pour achever un héros faible. */
+function outnumbered(world, hero, e) {
+  const foes = world.heroes.filter((h) => h.team !== hero.team && !h.dead && Math.hypot(h.x - e.x, h.y - e.y) < 700).length;
+  const mine = world.heroes.filter((h) => h.team === hero.team && !h.dead && Math.hypot(h.x - e.x, h.y - e.y) < 700).length + 1;
+  return foes > mine + 0;
 }
 
 function laneMinions(world, hero, lane) {
@@ -104,6 +230,11 @@ function threatScore(world, hero, lane) {
   return threat;
 }
 
+function humanLaneName(world, hero) {
+  const h = humanAlly(world, hero);
+  return h ? laneOfPoint(world, h.x, h.y) : null;
+}
+
 function chooseLane(world, hero) {
   if (hero.lane) return hero.lane;
   if (hero.flexLane && world.time < hero.flexUntil) return hero.flexLane;
@@ -114,7 +245,7 @@ function chooseLane(world, hero) {
     // Poussée : on rejoint la ligne où nos sbires sont le plus avancés.
     const ms = laneMinions(world, hero, lane);
     const push = ms.length ? Math.max(...ms.map((m) => progressOf(world, m))) / world.map.width : 0;
-    const score = threatScore(world, hero, lane) * 10 + push;
+    const score = threatScore(world, hero, lane) * 10 + push + (humanLaneName(world, hero) === lane ? 12 : 0);
     if (score > bestScore) {
       best = lane;
       bestScore = score;
@@ -127,20 +258,19 @@ function chooseLane(world, hero) {
 
 function anchorFor(world, hero, lane) {
   const ms = laneMinions(world, hero, lane);
-  const back = hero.team === TEAM_ALLY ? -110 : 110;
+  const back = hero.team === TEAM_ALLY ? -70 : 70;
   if (ms.length) {
     const lead = ms.reduce((a, b) => (progressOf(world, b) > progressOf(world, a) ? b : a));
     const p = { x: lead.x + back, y: lead.y };
     if (safeAt(world, hero, p)) return p;
   }
-  // Ligne vide : on tient le centre de la ligne, un peu en retrait de notre côté.
-  const mid = world.map.lanes[lane].points[Math.floor(world.map.lanes[lane].points.length / 2)];
-  const front = { x: mid[0] + back, y: mid[1] };
-  if (!ms.length && safeAt(world, hero, front)) return front;
-  // Point exposé : on tient la tour la plus avancée de la ligne, un peu en retrait.
+  // Ligne vide : on pousse jusqu'au point le plus avancé hors de portée des tours, au lieu d'attendre au centre.
+  const front = forwardPoint(world, hero, lane);
+  if (front) return front;
+  // Rien de sûr : on tient la tour la plus avancée de la ligne.
   const mine = world.towers.filter((t) => t.team === hero.team && t.lane === lane && !t.dead);
   const tw = mine.find((t) => t.tier === 'outer') || mine.find((t) => t.tier === 'inner');
-  if (tw) return { x: tw.x + back, y: tw.y };
+  if (tw) return { x: tw.x + back * 1.5, y: tw.y };
   return world.map.spawns[hero.team];
 }
 
@@ -152,15 +282,20 @@ function pickTarget(world, hero) {
     if (e.team === 'neutral' || !isTargetable(world, hero, e)) continue;
     const d = edgeDistance(hero, e);
     if (e.kind === 'hero') {
-      // On engage un héros si on est en forme, ou s'il est assez faible pour être achevé.
       const weak = e.hp / e.maxHp < 0.35;
-      if (d <= range + 250 * hero.aggression && (ratio >= 0.4 || weak) && safeAt(world, hero, e)) cands.push({ e, tier: weak ? -1 : 0, d });
+      const home = intrudes(world, hero, e);
+      const reach = range + 450 * hero.aggression;
+      const close = d <= reach || (weak && d <= reach + 250) || (home && d <= 1500);
+      if (close && (ratio >= 0.4 || weak) && safeAt(world, hero, e) && (weak || home || !outnumbered(world, hero, e))) cands.push({ e, tier: weak || home ? -1 : 0, d });
     } else if (e.kind === 'minion') {
-      if (d <= range + 250 && safeAt(world, hero, e)) cands.push({ e, tier: 1, d });
-    } else if (d <= range + 250 && safeAt(world, hero, e)) {
+      if (d <= range + 350 && safeAt(world, hero, e)) cands.push({ e, tier: 1, d });
+    } else if (d <= range + 350 && safeAt(world, hero, e)) {
       cands.push({ e, tier: 2, d });
     }
   }
+  // On rejoint un allié engagé (le joueur d'abord) : héros ennemi ou structure qu'il attaque.
+  const help = ratio >= 0.5 ? assistTarget(world, hero) : null;
+  if (help && !cands.some((c) => c.e === help) && safeAt(world, hero, help)) cands.push({ e: help, tier: help.kind === 'hero' ? -1 : 0.5, d: edgeDistance(hero, help) });
   if (!cands.length) return null;
   const bestTier = Math.min(...cands.map((c) => c.tier));
   const same = cands.filter((c) => c.tier === bestTier);
@@ -216,8 +351,10 @@ function tryAbilities(world, hero, target) {
     const s = ab.skill;
     const range = s.range[hero.rank.skill - 1];
     const d = edgeDistance(hero, target);
-    if (s.kind === 'dash' && target.kind === 'hero' && d > hero.def.auto.range + 40 && d <= range * 0.9) return cast('skill', target);
-    if (s.kind === 'fan' && (target.kind === 'hero' || target.kind === 'monster') && d > 160 && d <= range * 0.85) return cast('skill', target);
+    // La recharge est courte (5 s) : on s'en sert dès qu'un héros est à portée, pour le rejoindre ou le frapper.
+    if (s.kind === 'dash' && target.kind === 'hero' && d > hero.def.auto.range * 0.4 && d <= range * 0.9) return cast('skill', target);
+    const crowd = target.kind === 'minion' && world.units.filter((u) => u.kind === 'minion' && !u.dead && u.team !== hero.team && Math.hypot(u.x - target.x, u.y - target.y) < 380).length >= 2;
+    if (s.kind === 'fan' && (target.kind === 'hero' || target.kind === 'monster' || crowd) && d > 160 && d <= range * 0.85) return cast('skill', target);
   }
   return false;
 }
@@ -272,17 +409,32 @@ function liveMonsters(world, pred) {
 
 function objectiveFor(world, hero) {
   const m = world.match;
-  if (!m.jungle || world.time < m.jungle.startMs || hero.hp / hero.maxHp < 0.6) return null;
+  if (!m.jungle || world.time < m.jungle.startMs || hero.hp / hero.maxHp < 0.6) return null; // blessé : on laisse l'objectif
   const anyThreat = Object.keys(world.map.lanes).some((lane) => threatScore(world, hero, lane) > 0);
   if (anyThreat) return null;
 
   // Boss : le héros flottant et celui de la ligne du bas, si les deux sont en forme et si le boss est à prendre.
   const boss = world.boss && world.boss.unitId ? getUnit(world, world.boss.unitId) : null;
-  if (boss && !boss.dead && (hero.lane === null || hero.lane === 'bottom')) {
+  if (boss && !boss.dead && (hero.lane === null || hero.lane === 'bottom') && world.time >= (hero.bossAvoidUntil || 0)) {
     const mates = world.heroes.filter((h) => h.team === hero.team && !h.dead && (h.lane === null || h.lane === 'bottom'));
-    const ready = mates.length >= 2 && mates.every((h) => h.hp / h.maxHp >= 0.6);
+    const ready = mates.length >= 2 && mates.every((h) => h.hp / h.maxHp >= 0.75 && h.level >= 4);
     const rivals = world.heroes.filter((h) => h.team !== hero.team && !h.dead && Math.hypot(h.x - boss.x, h.y - boss.y) < 800).length;
-    if (ready && rivals <= 1) return boss;
+    if (ready && rivals <= 1) {
+      // Le duo se rassemble d'abord à un point de rendez-vous, puis engage ensemble : jamais un héros seul contre le Cerbère.
+      const stage = { x: boss.x + (hero.team === TEAM_ALLY ? -520 : 520), y: boss.y };
+      const together = mates.every((h) => Math.hypot(h.x - stage.x, h.y - stage.y) < 380 || Math.hypot(h.x - boss.x, h.y - boss.y) < 520);
+      if (together) return boss; // un coup perdu qui réveille le boss ne suffit pas à engager seul
+      hero.stageAt = stage;
+      return { stage };
+    }
+  }
+  // Ligne vide : un héros de ligne profite du calme pour prendre un camp proche de sa moitié.
+  if (hero.lane !== null && world.time > m.jungle.startMs + 5000) {
+    const quiet = laneMinions(world, hero, hero.lane).length === 0 && !world.units.some((u) => u.kind === 'minion' && !u.dead && u.team !== hero.team && u.lane === hero.lane);
+    if (quiet) {
+      const mons = liveMonsters(world, (u) => u.campId && world.camps.find((c) => c.id === u.campId).side === hero.team && Math.hypot(u.x - hero.x, u.y - hero.y) < 1500);
+      if (mons.length) return mons.reduce((a, b) => (Math.hypot(b.x - hero.x, b.y - hero.y) < Math.hypot(a.x - hero.x, a.y - hero.y) ? b : a));
+    }
   }
   // Camps : seulement pour le héros flottant.
   if (hero.lane === null) {
@@ -316,9 +468,32 @@ function matchThink(world, hero) {
     return;
   }
 
+  // Un bot tué par un monstre le laisse tranquille un moment avant d'y retourner.
+  if (hero.deaths !== hero.seenDeaths) {
+    hero.seenDeaths = hero.deaths;
+    hero.bossAvoidUntil = world.time + 70000;
+  }
   let target = pickTarget(world, hero);
-  const objective = objectiveFor(world, hero);
-  if (objective && !(target && target.kind === 'hero')) target = objective;
+  const push = pushObjective(world, hero);
+  if (push && !(target && target.kind === 'hero')) {
+    // Avantage numérique : on pousse ensemble. Sans couverture ni allié près de la tour, on attend au point d'attente.
+    if (safeAt(world, hero, push.tw)) target = push.tw;
+    else {
+      const wait = forwardPoint(world, hero, push.lane) || world.map.spawns[hero.team];
+      if (hero.targetId !== null) issueCommand(world, hero.id, { type: 'clear_target' });
+      moveTo(world, hero, wait, 70);
+      return;
+    }
+  }
+  const objective = push ? null : objectiveFor(world, hero);
+  if (objective && objective.stage) {
+    // Point de rendez-vous avant le boss : on y va, on n'engage pas encore.
+    if (!(target && target.kind === 'hero')) {
+      if (hero.targetId !== null) issueCommand(world, hero.id, { type: 'clear_target' });
+      moveTo(world, hero, objective.stage, 60);
+      return;
+    }
+  } else if (objective && !(target && target.kind === 'hero')) target = objective;
 
   if (tryAbilities(world, hero, target)) return;
 

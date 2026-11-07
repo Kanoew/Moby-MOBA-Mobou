@@ -93,13 +93,16 @@ test('XP au prorata : les kills ajoutent à l\'XP du temps ; troll > gnome ; cam
   assert.ok(a.xp - base >= match.units.gnome.xp, 'au moins l\'XP du gnome en plus de celle du temps');
 });
 
-test('rythme : au bout d\'une minute sans combat, niveau 2 ; l\'ultime (niveau 3) n\'arrive pas avant 2 min sans kills', () => {
+test('rythme : niveau 2 en moins d\'une minute, l\'ultime (niveau 3) pas avant 3 min sans aucun kill', () => {
   const w = duo();
   const a = getUnit(w, 'a');
   run(w, 60000);
   assert.equal(a.level, 2);
-  run(w, 70000);
-  assert.ok(a.level >= 3);
+  run(w, 120000); // 3:00 : 360 XP du temps seul
+  assert.equal(a.level, 2, 'sans kill, le niveau 3 n\'est pas atteint à 3:00');
+  assert.equal(a.rank.ult, 0, 'ultime encore verrouillé');
+  run(w, 40000);
+  assert.ok(a.level >= 3 && a.rank.ult === 1);
 });
 
 /* ----------------------------- durée de la partie ----------------------------- */
@@ -137,7 +140,7 @@ test('un duel de bots contre un héros inactif se termine par le noyau, avant la
     const w = mk(roster, match, seed);
     run(w, 600000, true);
     assert.equal(w.over.reason, 'core', `seed ${seed}`);
-    assert.ok(w.over.atMs < 600000 && w.over.atMs > 240000, `seed ${seed} : fin à ${w.over.atMs / 1000} s`);
+    assert.ok(w.over.atMs < 600000 && w.over.atMs > 150000, `seed ${seed} : fin à ${w.over.atMs / 1000} s`);
   }
 });
 
@@ -149,8 +152,14 @@ test('niveaux : à 8 minutes les héros des bots sont proches du niveau maximum'
   const lv4 = w.heroes.reduce((a, h) => a + h.level, 0) / w.heroes.length;
   run(w, 240000, true);
   const lv8 = w.heroes.reduce((a, h) => a + h.level, 0) / w.heroes.length;
-  assert.ok(lv4 >= 4.5 && lv4 <= 6.5, `niveau moyen à 4 min : ${lv4}`);
+  assert.ok(lv4 >= 4.2 && lv4 <= 6.2, `niveau moyen à 4 min : ${lv4}`);
   assert.ok(lv8 >= 7 && lv8 <= 9, `niveau moyen à 8 min : ${lv8}`);
+  // Le niveau 3 (ultime) arrive vers 2:00 en moyenne, pas dès la première minute.
+  const w3 = mk(roster, match, 1);
+  run(w3, 90000, true);
+  assert.ok(w3.heroes.every((h) => h.rank.ult === 0), 'aucun ultime avant 1:30');
+  run(w3, 90000, true);
+  assert.ok(w3.heroes.filter((h) => h.rank.ult >= 1).length >= 4, 'la plupart ont leur ultime vers 3:00');
 });
 
 /* --------------------------- monstres des lignes et camps --------------------------- */

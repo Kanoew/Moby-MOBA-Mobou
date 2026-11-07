@@ -6,7 +6,8 @@ import { collectImagePaths, createRenderer, loadImages } from './render/renderer
 import { bindPointer, commandForPoint } from './input/pointer.js';
 import { loadProfile, resetProfile, rewardMatch, saveProfile } from './ui/profile.js';
 import { createUi } from './ui/screens.js';
-import { bindTouchControls, updateTouchHud } from './ui/touch.js';
+import { createLobbyView, LOBBY_MS } from './ui/lobby.js';
+import { attackAction, bindTouchControls, updateTouchHud } from './ui/touch.js';
 import { createHud } from './ui/hud.js';
 import { isMuted, setMuted, unlockAudio } from './ui/sound.js';
 
@@ -89,7 +90,7 @@ async function boot() {
   const hud = createHud({ issue, getGame: () => game, localId: PLAYER_ID, heroDefs });
   window.addEventListener('pointerdown', unlockAudio, { capture: true });
 
-  function makeRoster(hero) {
+  function makeRoster(hero, picks) {
     if (duel) {
       const botHero = hero === 'yeji' ? 'jennie' : 'yeji';
       return [
@@ -98,14 +99,17 @@ async function boot() {
       ];
     }
     // Match 3v3 : le joueur + deux bots contre trois bots, mêmes compagnons des deux côtés.
-    const out = [{ id: PLAYER_ID, hero, team: TEAM_ALLY, controller: 'player', lane: LANE_OF[hero] }];
-    for (const h of Object.keys(LANE_OF)) if (h !== hero) out.push({ id: `a-${h}`, hero: h, team: TEAM_ALLY, controller: 'bot', lane: LANE_OF[h] });
-    for (const h of Object.keys(LANE_OF)) out.push({ id: `e-${h}`, hero: h, team: TEAM_ENEMY, controller: botsOn ? 'bot' : 'idle', lane: LANE_OF[h] });
+    // Les équipes viennent du lobby ; sans lobby (paramètres d'URL), les autres personnages alliés et le trio adverse.
+    const allies = picks ? picks.allies : Object.keys(LANE_OF).filter((h) => h !== hero);
+    const enemies = picks ? picks.enemies : Object.keys(LANE_OF);
+    const out = [{ id: PLAYER_ID, hero, team: TEAM_ALLY, controller: 'player', lane: LANE_OF[hero] ?? null }];
+    for (const h of allies) out.push({ id: `a-${h}`, hero: h, team: TEAM_ALLY, controller: 'bot', lane: LANE_OF[h] ?? null });
+    for (const h of enemies) out.push({ id: `e-${h}`, hero: h, team: TEAM_ENEMY, controller: botsOn ? 'bot' : 'idle', lane: LANE_OF[h] ?? null });
     return out;
   }
 
-  function startGame(hero) {
-    const world = createWorld({ map: duel ? arena : map3v3, heroDefs, match: duel ? null : matchCfg, roster: makeRoster(hero), seed });
+  function startGame(hero, picks) {
+    const world = createWorld({ map: duel ? arena : map3v3, heroDefs, match: duel ? null : matchCfg, roster: makeRoster(hero, picks), seed });
     const renderer = createRenderer(canvas, world, images, { touch: touchMode });
     renderer.setDebug(game ? game.renderer.isDebug() : debugOn);
     game = { world, renderer, hero, aim: null, paused: false, ended: false };
@@ -127,7 +131,6 @@ async function boot() {
     $('#endcard').hidden = true;
     ui.go('game');
     window.__moba = { world, renderer, issueCommand, step, getUnit, PLAYER_ID, setAim: (a) => (game.aim = a), startGame, game: () => game };
-    if (touchMode) lockLandscape();
     applyOrientation();
   }
 
@@ -161,7 +164,28 @@ async function boot() {
   window.addEventListener('orientationchange', applyOrientation);
 
   /* ----- Interface ----- */
-  const ui = createUi({ roster, heroDefs, profile, storage: localStorage, onPlay: (hero) => startGame(hero), version: VERSION });
+  // Lobby : 20 secondes pour choisir son personnage ; sans validation, le choix en cours est validé automatiquement.
+  const lobby = createLobbyView({
+    heroDefs,
+    roster,
+    toast: (t) => ui.toast(t),
+    onCancel: () => {
+      lobby.close();
+      ui.go('home');
+    },
+    onStart: (result) => {
+      profile.selected = result.playerHero;
+      saveProfile(localStorage, profile);
+      startGame(result.playerHero, result);
+    },
+  });
+  const lobbyMs = Number(params.get('lobbyMs')) || LOBBY_MS;
+  function openLobby() {
+    if (touchMode) lockLandscape(); // dans le geste de l'utilisateur (le clic sur Jouer ou Rejouer)
+    lobby.open(profile, { durationMs: lobbyMs });
+    ui.go('lobby');
+  }
+  const ui = createUi({ roster, heroDefs, profile, storage: localStorage, onPlay: openLobby, version: VERSION });
 
   $('#btn-pause').addEventListener('click', () => setPaused(true));
   $('#btn-resume').addEventListener('click', () => setPaused(false));
@@ -169,7 +193,10 @@ async function boot() {
     setPaused(false);
     quitToMenu();
   });
-  $('#btn-again').addEventListener('click', () => startGame(game ? game.hero : profile.selected));
+  $('#btn-again').addEventListener('click', () => {
+    game = null;
+    openLobby(); // « Rejouer » repasse par le lobby : on peut changer de personnage
+  });
   $('#btn-menu').addEventListener('click', quitToMenu);
   function setPaused(p) {
     if (!game || game.ended) return;
@@ -184,6 +211,7 @@ async function boot() {
     hero: me,
     issue,
     setAim: (a) => game && (game.aim = a),
+    notify: (text) => hud.toast(text),
     enabled: () => !!game && !game.paused && !game.ended && !game.world.over && !me().dead && !isPortraitBlocked(),
   });
 
@@ -229,6 +257,11 @@ async function boot() {
   canvas.addEventListener('contextmenu', () => game && (game.aim = null));
 
   window.addEventListener('keydown', (e) => {
+    if (ui.screen() === 'lobby' && e.key === 'Escape') {
+      lobby.close();
+      ui.go('home');
+      return;
+    }
     if (!game || ui.screen() !== 'game') return;
     const k = e.key.toLowerCase();
     if (k === 'tab') {
@@ -253,6 +286,7 @@ async function boot() {
       } else startAim();
     } else if (k === 'r') cast('ult');
     else if (k === 'b') issue({ type: 'recall' });
+    else if (k === 'a') attackAction(game.world, me(), issue, (t) => hud.toast(t)); // touche A : même auto-cible que le bouton d'attaque
     else if (k === 'p') hud.toggleShop();
     else if (k === '1' || k === '2') {
       const pending = game.world.bonus && game.world.bonus.choices.some((c) => c.chooserId === PLAYER_ID && !c.lane);
@@ -303,6 +337,10 @@ async function boot() {
     requestAnimationFrame(frame);
     const dt = Math.min(100, now - last);
     last = now;
+    if (ui.screen() === 'lobby') {
+      lobby.tick(dt);
+      return;
+    }
     if (!game || ui.screen() !== 'game') return;
     const blocked = game.paused || isPortraitBlocked();
     if (!blocked) {

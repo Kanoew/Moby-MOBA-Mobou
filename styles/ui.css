@@ -38,6 +38,7 @@ button { font: inherit; color: inherit; }
 #app[data-screen='home'] #screen-home,
 #app[data-screen='characters'] #screen-characters,
 #app[data-screen='shop'] #screen-shop,
+#app[data-screen='lobby'] #screen-lobby,
 #app[data-screen='game'] #screen-game { display: flex; }
 .screen.game { padding: 0; }
 
@@ -159,6 +160,8 @@ body.touch #help { display: none; }
 .act.locked { opacity: 0.45; }
 .act.aiming { border-color: var(--ally); transform: scale(1.08); }
 .act.pulse { transform: scale(0.92); }
+.act.miss { border-color: var(--enemy); animation: shake 0.18s; }
+@keyframes shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 .pips { position: absolute; bottom: 8%; display: flex; gap: 3px; }
 .pips i { width: calc(var(--u) * 0.14); height: calc(var(--u) * 0.05); background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
 .act[data-rank='1'] .pips i:nth-child(-n + 1), .act[data-rank='2'] .pips i:nth-child(-n + 2), .act[data-rank='3'] .pips i:nth-child(-n + 3) { background: var(--gold); }
@@ -271,4 +274,42 @@ body.touch #help { display: none; }
   .mini-portrait { width: 30px; height: 32px; background-size: 240px 357px; }
   .hud-btn { padding: 0 10px; font-size: 13px; min-height: 38px; }
   #hud-buttons { gap: 4px; }
+}
+
+
+/* ==========================================================================
+   Lobby de sélection (20 secondes). HABILLAGE : cartes .pick, emplacements .slot-card.
+   ========================================================================== */
+.timer { display: flex; align-items: center; gap: 10px; min-width: 150px; }
+.timer b { font-size: 34px; font-variant-numeric: tabular-nums; min-width: 44px; text-align: center; }
+.timer b.urgent { color: var(--enemy); animation: tick 1s steps(2) infinite; }
+@keyframes tick { 50% { opacity: 0.55; } }
+.timer .bar { flex: 1; height: 8px; border-radius: 999px; background: var(--bg-2); overflow: hidden; border: 1px solid var(--panel-line); }
+.timer .bar i { display: block; height: 100%; width: 100%; background: var(--gold); transition: width 0.25s linear; }
+.lobby-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; }
+.picker { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.card.pick:disabled { opacity: 0.55; cursor: default; }
+.lobby-teams { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.lobby-teams .team { background: var(--panel); border: 1px solid var(--panel-line); border-radius: var(--radius); padding: 8px 10px; }
+.lobby-teams h3 { margin: 0 0 6px; font-size: 15px; }
+.team.mine h3 { color: var(--ally); }
+.team.theirs h3 { color: var(--enemy); }
+.slot-cards { display: flex; flex-direction: column; gap: 6px; }
+.slot-card { display: grid; grid-template-columns: 38px minmax(0, 1fr) 24px; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 10px; background: var(--bg-2); border: 2px solid transparent; min-height: 48px; }
+.slot-card.me { border-color: var(--gold); background: rgba(255, 211, 107, 0.1); }
+.slot-card.locked .state { color: var(--ok); }
+.slot-card .who { font-weight: 800; }
+.slot-card .who small { display: block; font-size: 11px; color: var(--ink-dim); font-weight: 600; }
+.slot-card .state { text-align: center; font-weight: 900; color: var(--ink-dim); }
+.mini-portrait.empty { background: none; border: 2px dashed var(--panel-line); border-radius: 8px; }
+.lobby-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 10px; }
+.lobby-foot .note { margin: 0; text-align: left; }
+.lobby-foot .btn { min-width: 200px; }
+@media (max-height: 420px), (max-width: 760px) {
+  .timer b { font-size: 26px; min-width: 34px; }
+  .picker { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .lobby-body { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 8px; }
+  .lobby-teams .team { padding: 5px 8px; }
+  .slot-card { min-height: 40px; padding: 2px 6px; }
+  .lobby-foot .btn { min-width: 150px; min-height: 42px; }
 }
