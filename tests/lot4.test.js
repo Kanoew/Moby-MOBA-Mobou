@@ -11,8 +11,11 @@ const root = new URL('../', import.meta.url);
 const load = (p) => JSON.parse(readFileSync(new URL(`data/${p}`, root), 'utf8'));
 const items = load('items.json');
 const baseMatch = load('match.json');
-// Sans XP du temps : les valeurs de dégâts attendues restent exactes.
-const match = { ...baseMatch, items, progression: { ...baseMatch.progression, passiveXpPerSec: 0 } };
+// Sans XP ni or du temps, sans or de présence ni d'objectif : les valeurs attendues des tests historiques restent exactes.
+// Les revenus ajoutés au lot 6 ont leurs propres tests plus bas (`economyMatch`).
+const NO_EXTRA_INCOME = { passivePerSec: 0, laneShareRatio: 0, towerGold: { outer: 0, inner: 0 }, bossTeamGold: 0 };
+const match = { ...baseMatch, items, progression: { ...baseMatch.progression, passiveXpPerSec: 0 }, economy: { ...baseMatch.economy, ...NO_EXTRA_INCOME } };
+const economyMatch = { ...baseMatch, items, progression: { ...baseMatch.progression, passiveXpPerSec: 0 } };
 const map = load('map-3v3.json');
 const heroDefs = load('heroes.json');
 const DT = 16;
@@ -758,4 +761,73 @@ test('équipement offensif : bonus permanent cumulatif, progression et revente s
   assert.equal(a.atk, levelBase + 22);
   assert.equal(sellItem(w, a, 'gants-duel').ok, true);
   assert.equal(a.atk, levelBase);
+});
+
+/* ------------------------- lot 6 : revenus (or du temps, de présence, d'objectif) ------------------------- */
+
+test('revenu : or du temps seulement pour les héros vivants, sans impact sur le reste, et sans « +2 » à chaque seconde', () => {
+  const w = mk(undefined, economyMatch);
+  const a = getUnit(w, 'a');
+  const b = getUnit(w, 'b');
+  const rate = economyMatch.economy.passivePerSec;
+  assert.ok(rate >= 1.5 && rate <= 3, 'revenu du temps de quelques pièces par seconde');
+  run(w, 10000);
+  assert.ok(Math.abs(a.gold - 300 - rate * 10) <= 1, `10 s de revenu : ${a.gold - 300}`);
+  b.dead = true; // un héros éliminé ne gagne rien
+  const gb = b.gold;
+  run(w, 5000);
+  assert.equal(b.gold, gb);
+  const ev = w.log.filter((e) => e.type === 'gold' && e.heroId === 'a');
+  assert.ok(ev.length >= 8 && ev.every((e) => e.source === 'passive' && Number.isInteger(e.amount)), 'paliers entiers, marqués « passive »');
+});
+
+test('revenu : un sbire qui meurt sans dernier coup de héros paie les héros proches de l\'équipe qui l\'a tué', () => {
+  const w = mk(undefined, economyMatch);
+  const a = getUnit(w, 'a');
+  run(w, 5200); // la zone de départ retient les héros jusqu'à 0:05
+  away(a);
+  const eco = economyMatch.economy;
+  const g = dummy(w, 1700, 450, 'enemy', 100); // à portée de présence
+  const before = a.gold;
+  applyDamage(w, getUnit(w, 'tower-ally-top-outer'), g, 99999); // dernier coup d'une tour alliée
+  assert.equal(a.gold, before + Math.round(economyMatch.units.gnome.gold * eco.laneShareRatio));
+  assert.ok(w.log.some((e) => e.type === 'gold' && e.heroId === 'a' && e.source === 'lane'));
+  // trop loin : rien
+  place(a, 1500 + eco.laneShareRadius + 400, 450);
+  const g2 = dummy(w, 1500, 450, 'enemy', 100);
+  const b2 = a.gold;
+  applyDamage(w, getUnit(w, 'tower-ally-top-outer'), g2, 99999);
+  assert.equal(a.gold, b2);
+  // dernier coup d'un héros : la part de présence n'est pas versée en plus
+  place(a, 1500, 450);
+  const g3 = dummy(w, 1550, 450, 'enemy', 100);
+  const b3 = a.gold;
+  applyDamage(w, a, g3, 99999);
+  assert.equal(a.gold, b3 + economyMatch.units.gnome.gold);
+});
+
+test('revenu : une tour détruite paie toute l\'équipe qui l\'a abattue (vivants ou non), selon son rang ; le Cerbère aussi', () => {
+  const w = mk([{ id: 'a', hero: 'yeji', team: 'ally' }, { id: 'a2', hero: 'sweetie', team: 'ally' }, { id: 'b', hero: 'jennie', team: 'enemy' }], economyMatch);
+  const [a, a2, b] = ['a', 'a2', 'b'].map((id) => getUnit(w, id));
+  run(w, 200);
+  a2.dead = true;
+  const g = [a.gold, a2.gold, b.gold];
+  const outer = getUnit(w, 'tower-enemy-top-outer');
+  applyDamage(w, a, outer, 1e9);
+  assert.equal(a.gold, g[0] + economyMatch.economy.towerGold.outer);
+  assert.equal(a2.gold, g[1] + economyMatch.economy.towerGold.outer, 'même un allié éliminé');
+  assert.equal(b.gold, g[2], 'l\'équipe adverse ne reçoit rien');
+  const inner = getUnit(w, 'tower-enemy-top-inner');
+  const g1 = a.gold;
+  applyDamage(w, a, inner, 1e9);
+  assert.equal(a.gold, g1 + economyMatch.economy.towerGold.inner);
+  assert.ok(economyMatch.economy.towerGold.inner > economyMatch.economy.towerGold.outer);
+  // Cerbère : or de dernier coup au héros + or d'équipe pour tous
+  run(w, 211000);
+  a2.dead = false;
+  const boss = getUnit(w, w.boss.unitId);
+  const h = [a.gold, a2.gold];
+  applyDamage(w, a, boss, 1e9);
+  assert.equal(a.gold, h[0] + economyMatch.units.boss.gold + economyMatch.economy.bossTeamGold, 'dernier coup + part d\'équipe');
+  assert.equal(a2.gold, h[1] + economyMatch.economy.bossTeamGold, 'part d\'équipe seule');
 });

@@ -111,7 +111,7 @@ test('la partie dure au plus 10 minutes : fin au temps, vainqueur aux dégâts s
   assert.equal(match.timeLimitMs, 600000);
   const w = duo();
   const t = getUnit(w, 'tower-enemy-top-outer');
-  t.hp -= 300;
+  t.hp -= 900;
   run(w, 605000);
   assert.ok(w.over);
   assert.equal(w.over.reason, 'time');

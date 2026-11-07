@@ -7,7 +7,7 @@
 import { findPath } from './path.js';
 import { initProgression, awardXp, spendPoint, tickPassiveXp } from './progression.js';
 import { startCast, canQueueCast, updateCast, updateZones, updateStatuses, effectiveSpeed, skillHitBonus, skillHeroHit } from './abilities.js';
-import { awardGold, buyItem, effectiveDefense, emptyFx, heroAutoDamage, onHeroDamaged, sellItem, startingGold } from './shop.js';
+import { awardGold, awardLaneShare, awardTeamGold, tickPassiveGold, buyItem, effectiveDefense, emptyFx, heroAutoDamage, onHeroDamaged, sellItem, startingGold } from './shop.js';
 import { cancelRecall, startRecall, updateRecall } from './recall.js';
 import { initJungle, updateJungle, updateMonster, onMonsterKilled, chooseBonusLane, takeBonusWave } from './jungle.js';
 
@@ -386,7 +386,10 @@ export function step(world, dtMs) {
     else if (u.kind === 'tower') updateTower(world, u, dtMs);
     else if (u.kind === 'monster') updateMonster(world, u, dtMs);
   }
-  if (world.match) tickPassiveXp(world, dtMs);
+  if (world.match) {
+    tickPassiveXp(world, dtMs);
+    tickPassiveGold(world, dtMs);
+  }
   updateProjectiles(world, dtMs);
   updateZones(world, dtMs);
   updateStatuses(world);
@@ -686,6 +689,7 @@ function kill(world, source, target) {
     }
   } else if (target.kind === 'tower') {
     world.stats[otherTeam(target.team)].towers++;
+    if (world.match) awardTeamGold(world, otherTeam(target.team), world.match.economy.towerGold[target.tier] || 0, 'tower');
     emit(world, { type: 'tower_destroyed', unitId: target.id, team: target.team, lane: target.lane, tier: target.tier });
   } else if (target.kind === 'core') {
     world.over = { winnerTeam: otherTeam(target.team), atMs: world.time, reason: 'core' };
@@ -697,6 +701,7 @@ function kill(world, source, target) {
   } else {
     if (world.match) awardXp(world, otherTeam(target.team), target.x, target.y, target.def.xp);
     if (source && source.kind === 'hero') awardGold(world, source, target.def.gold || 0); // or au dernier coup
+    else if (world.match) awardLaneShare(world, otherTeam(target.team), target.x, target.y, target.def.gold || 0);
     emit(world, { type: 'minion_died', unitId: target.id });
   }
 }

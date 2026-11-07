@@ -26,10 +26,43 @@ export function startingGold(match) {
   return match && match.items ? match.items.rules.startingGold : 0;
 }
 
-export function awardGold(world, hero, amount) {
+export function awardGold(world, hero, amount, source = 'kill') {
   if (!hero || hero.kind !== 'hero' || !amount || !world.match) return;
   hero.gold += amount;
-  emit(world, { type: 'gold', heroId: hero.id, amount });
+  emit(world, { type: 'gold', heroId: hero.id, amount, source });
+}
+
+/** Or du temps qui passe : chaque héros vivant en gagne `passivePerSec` par seconde, versé en petits paliers entiers. */
+export function tickPassiveGold(world, dtMs) {
+  const rate = world.match && world.match.economy.passivePerSec;
+  if (!rate) return;
+  for (const h of world.heroes) {
+    if (h.dead) continue;
+    h.goldBuffer = (h.goldBuffer || 0) + (rate * dtMs) / 1000;
+    if (h.goldBuffer >= 1) {
+      const n = Math.floor(h.goldBuffer);
+      h.goldBuffer -= n;
+      awardGold(world, h, n, 'passive');
+    }
+  }
+}
+
+/** Or d'objectif (tour, boss) : tous les héros de l'équipe, vivants ou non, en reçoivent la même somme. */
+export function awardTeamGold(world, team, amount, source) {
+  if (!amount || !world.match) return;
+  for (const h of world.heroes) if (h.team === team) awardGold(world, h, amount, source);
+}
+
+/**
+ * Or de présence : quand un sbire ou un monstre meurt sans qu'un héros porte le dernier coup (sbire allié, tour), les héros
+ * de l'équipe qui l'ont vu mourir de près en reçoivent une part. Présence en ligne = revenu, sans dernier coup obligatoire.
+ */
+export function awardLaneShare(world, team, x, y, gold) {
+  const eco = world.match && world.match.economy;
+  if (!eco || !eco.laneShareRatio || !gold) return;
+  const near = world.heroes.filter((h) => h.team === team && !h.dead && Math.hypot(h.x - x, h.y - y) <= eco.laneShareRadius);
+  const part = Math.round(gold * eco.laneShareRatio);
+  if (part > 0) for (const h of near) awardGold(world, h, part, 'lane');
 }
 
 /** Qu'est-ce qui empêche cet achat ? Retourne { ok, reason } ; `reason` est le libellé affiché au joueur. */
