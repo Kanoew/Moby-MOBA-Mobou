@@ -8,11 +8,11 @@ import { xpToNext } from '../sim/progression.js';
 const COLORS = {
   ally: '#34d3e8',
   enemy: '#ff6f61',
-  ground: '#1b2230',
+  ground: '#173438',
   grid: 'rgba(255,255,255,0.04)',
-  lane: 'rgba(120,140,175,0.13)',
-  obstacle: '#3a4458',
-  obstacleEdge: '#566178',
+  lane: '#425453',
+  obstacle: '#294448',
+  obstacleEdge: '#6b8580',
   ink: '#f4f1e8',
   gold: '#ffd36b',
 };
@@ -156,18 +156,15 @@ export function createRenderer(canvas, world, images, opts = {}) {
     const { width, height, obstacles } = world.map;
     ctx.fillStyle = COLORS.ground;
     ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = COLORS.grid;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let x = 0; x <= width; x += 100) {
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
+    // Décor déterministe : aucun aléatoire de simulation ni grille technique visible.
+    for (let i = 0; i < 420; i++) {
+      const x = (i * 173 + 31) % width;
+      const y = (i * 251 + 67) % height;
+      ctx.fillStyle = i % 3 ? '#79a58d10' : '#071f2928';
+      ctx.beginPath();
+      ctx.ellipse(x, y, 12 + i % 29, 5 + i % 13, i, 0, Math.PI * 2);
+      ctx.fill();
     }
-    for (let y = 0; y <= height; y += 100) {
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-    }
-    ctx.stroke();
 
     if (world.map.lanes) {
       ctx.save();
@@ -179,6 +176,16 @@ export function createRenderer(canvas, world, images, opts = {}) {
         ctx.beginPath();
         L.points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
         ctx.stroke();
+        ctx.strokeStyle = '#9cae8e28';
+        ctx.lineWidth = 190;
+        ctx.stroke();
+        ctx.strokeStyle = '#233d3d88';
+        ctx.lineWidth = 150;
+        ctx.setLineDash([3, 46]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = COLORS.lane;
+        ctx.lineWidth = 230;
       }
       ctx.restore();
       if (world.match) {
@@ -203,10 +210,34 @@ export function createRenderer(canvas, world, images, opts = {}) {
     ctx.fillStyle = COLORS.obstacle;
     for (const o of obstacles) {
       ctx.beginPath();
-      if (o.type === 'circle') ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+      if (o.type === 'circle') {
+        // Facettes inscrites dans l'obstacle : la silhouette reste fidèle à sa collision.
+        for (let i = 0; i < 9; i++) {
+          const a = i * Math.PI * 2 / 9;
+          const x = o.x + Math.cos(a) * o.r;
+          const y = o.y + Math.sin(a) * o.r;
+          if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+        }
+        ctx.closePath();
+      }
       else ctx.rect(o.x - o.w / 2, o.y - o.h / 2, o.w, o.h);
+      ctx.save();
+      ctx.shadowColor = '#03151b99';
+      ctx.shadowBlur = 16;
+      ctx.shadowOffsetY = 12;
       ctx.fill();
+      ctx.restore();
       ctx.stroke();
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = '#a1b79b20';
+      ctx.beginPath();
+      ctx.moveTo(o.x - 130, o.y - 120);
+      ctx.lineTo(o.x + 130, o.y - 120);
+      ctx.lineTo(o.x - 20, o.y + 20);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
     }
     ctx.strokeStyle = 'rgba(255,255,255,0.18)';
     ctx.strokeRect(0, 0, width, height);
@@ -718,8 +749,8 @@ export function createRenderer(canvas, world, images, opts = {}) {
   /* --------------------------------- HUD --------------------------------- */
 
   function panel(x, y, w, h) {
-    ctx.fillStyle = 'rgba(14,18,28,0.82)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+    ctx.fillStyle = 'rgba(7,24,33,0.92)';
+    ctx.strokeStyle = 'rgba(180,206,186,0.35)';
     ctx.lineWidth = 1;
     ctx.fillRect(x, y, w, h);
     ctx.strokeRect(x + 0.5, y + 0.5, w, h);
@@ -729,7 +760,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
     const local = getUnit(world, localId);
     const localTeam = local ? local.team : 'ally';
     const foe = localTeam === 'ally' ? 'enemy' : 'ally';
-    const u = Math.max(1, canvas.height / 900); // échelle d'interface
+    const u = lastView.dpr * Math.max(0.65, Math.min(1.3, canvas.clientHeight / 900)); // échelle d'interface
     hudHits = [];
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -752,18 +783,23 @@ export function createRenderer(canvas, world, images, opts = {}) {
 
     // Bas : PV du joueur, ou compte à rebours de réapparition.
     if (local) {
-      const bw = 360 * u;
+      const bw = (opts.touch ? 300 : 360) * u;
       const bx = cx - bw / 2;
       const by = canvas.height - 46 * u;
-      panel(bx - 10 * u, by - 14 * u, bw + 20 * u, 42 * u);
+      panel(bx - 10 * u, by - (opts.touch ? 29 : 14) * u, bw + 20 * u, (opts.touch ? 57 : 42) * u);
       ctx.fillStyle = '#10151f';
       ctx.fillRect(bx, by, bw, 14 * u);
       ctx.fillStyle = COLORS.ally;
       ctx.fillRect(bx, by, bw * (local.hp / local.maxHp), 14 * u);
       ctx.textAlign = 'center';
       ctx.fillStyle = COLORS.ink;
-      ctx.font = `600 ${14 * u}px system-ui, sans-serif`;
-      ctx.fillText(`${local.def.name}  ${Math.ceil(local.hp)} / ${local.maxHp}   ·   ${local.kills} / ${local.deaths} / ${local.assists}`, cx, by - 20 * u + 34 * u);
+      ctx.font = `600 ${Math.max(12 * lastView.dpr, 14 * u)}px system-ui, sans-serif`;
+      if (opts.touch) {
+        ctx.fillText(`${local.def.name} · Niv ${local.level || 1}`, cx, by - 9 * u);
+        ctx.fillText(`${Math.ceil(local.hp)} / ${local.maxHp}`, cx, by + 14 * u);
+      } else {
+        ctx.fillText(`${local.def.name} · Niv ${local.level || 1}  ${Math.ceil(local.hp)} / ${local.maxHp}   ·   ${local.kills} / ${local.deaths} / ${local.assists}`, cx, by + 14 * u);
+      }
       if (local.dead && local.respawnAt !== null) {
         ctx.font = `700 ${34 * u}px system-ui, sans-serif`;
         ctx.fillStyle = COLORS.ink;
@@ -953,7 +989,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
   }
 
   function drawMinimap(localTeam, u) {
-    const mw = 260 * u;
+    const mw = (opts.touch ? 190 : 220) * u;
     const mh = (mw * world.map.height) / world.map.width;
     const x0 = 10 * u;
     const y0 = 10 * u;
@@ -961,7 +997,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
     panel(x0 - 4, y0 - 4, mw + 8, mh + 8);
     ctx.save();
     ctx.translate(x0, y0);
-    ctx.fillStyle = '#141a27';
+    ctx.fillStyle = '#102d33';
     ctx.fillRect(0, 0, mw, mh);
     ctx.lineCap = 'round';
     ctx.strokeStyle = 'rgba(140,160,195,0.35)';

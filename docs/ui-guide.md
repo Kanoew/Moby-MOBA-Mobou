@@ -70,3 +70,11 @@ Un numéro de version unique vit dans `version.json`. Chaque fichier chargé (mo
 - Le canvas dessine encore, par-dessus, le chrono / éliminations / tours (toucher cette zone ouvre les scores) et la minimap.
 - Les tailles tactiles minimales (≈ 38–44 px) sont respectées ; les conserver en restylant.
 - Le rappel est dessiné dans le canvas (cercle doré + jauge sous les pieds) ; le bouton `#btn-recall` affiche le temps restant.
+
+## Habillage 0.7.0 — arène nocturne
+
+L'accueil utilise `assets/ui/arena-dusk.svg`, un paysage vectoriel local, et les trois sprites de compagnons existants. Personnages, boutique et lobby reprennent cette ambiance turquoise/or. Les styles responsive et la préférence de mouvement réduit sont définis à la fin de `styles/ui.css`.
+
+Le terrain Canvas affiche un sol texturé déterministe, des chemins de pierre et des obstacles facettés. Le décor ne modifie pas la simulation ni les collisions. L'échelle du HUD tient compte du ratio de pixels ; mini-carte et barre de vie sont compactées sur mobile, avec le niveau du joueur affiché près des PV. Les commandes de ciblage sont regroupées au-dessus de l'inventaire.
+
+Validation : suite Node complète et parcours Chromium aux formats 1440×900, 844×390 et 667×375 (accueil, personnages, boutique, sélection, lancement et boutique en partie). Les contrôles de ciblage ont aussi été exercés sur PC et mobile. Les performances sur téléphones physiques restent à vérifier.
