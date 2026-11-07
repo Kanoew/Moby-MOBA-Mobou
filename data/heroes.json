@@ -1,0 +1,75 @@
+{
+  "yeji": {
+    "name": "Yeji",
+    "role": "Katana",
+    "stats": { "hp": 700, "atk": 60, "def": 30, "speed": 300, "radius": 26 },
+    "auto": {
+      "kind": "melee",
+      "range": 140,
+      "hitSlack": 24,
+      "intervalMs": 1100,
+      "frameDurationsMs": [220, 180, 100, 130, 180, 220],
+      "hitFrame": 2
+    },
+    "sprites": {
+      "scale": 0.75,
+      "companion": {
+        "sheet": "assets/yeji/companion.png",
+        "cell": [192, 208],
+        "anchor": [96, 202],
+        "animations": {
+          "idle": { "row": 0, "durationsMs": [280, 110, 110, 140, 140, 320] },
+          "running-right": { "row": 1, "durationsMs": [120, 120, 120, 120, 120, 120, 120, 220] },
+          "running-left": { "row": 2, "durationsMs": [120, 120, 120, 120, 120, 120, 120, 220] }
+        }
+      },
+      "attack": {
+        "sheet": "assets/yeji/katana.png",
+        "cell": [640, 640],
+        "anchor": [320, 600],
+        "scaleRelativeToCompanion": 0.653,
+        "directions": { "right": 0, "left": 1, "front": 2, "back": 3 },
+        "mirrorLeft": false
+      }
+    }
+  },
+  "jennie": {
+    "name": "Jennie",
+    "role": "Mariée gothique",
+    "stats": { "hp": 520, "atk": 48, "def": 15, "speed": 290, "radius": 26 },
+    "auto": {
+      "kind": "projectile",
+      "range": 520,
+      "intervalMs": 900,
+      "frameDurationsMs": [70, 65, 65, 40, 50, 65, 75, 80],
+      "hitFrame": 4,
+      "projectile": { "speed": 900, "radius": 14, "maxLifeMs": 3000 }
+    },
+    "sprites": {
+      "scale": 0.75,
+      "companion": {
+        "sheet": "assets/jennie/companion.png",
+        "cell": [192, 208],
+        "anchor": [96, 202],
+        "animations": {
+          "idle": { "row": 0, "durationsMs": [280, 110, 110, 140, 140, 320] },
+          "running-right": { "row": 1, "durationsMs": [120, 120, 120, 120, 120, 120, 120, 220] },
+          "running-left": { "row": 2, "durationsMs": [120, 120, 120, 120, 120, 120, 120, 220] }
+        }
+      },
+      "attack": {
+        "sheet": "assets/jennie/attack.png",
+        "cell": [320, 320],
+        "anchor": [104, 284],
+        "scaleRelativeToCompanion": 0.89,
+        "mirrorLeft": true,
+        "projectile": {
+          "texture": "assets/jennie/bouquet.png",
+          "pivot": [56, 48],
+          "scaleRelativeToAtlas": 0.62,
+          "spawnOffsetFromPivot": [107, -119]
+        }
+      }
+    }
+  }
+}
