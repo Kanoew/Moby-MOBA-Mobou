@@ -60,7 +60,7 @@ test('vagues : rien avant 0:30, puis quatre sbires par ligne et par équipe, ét
   run(w, 2000);
   assert.equal(count(w, 'minion_spawn'), 16); // 2 lignes × 2 équipes × 4
   const types = w.units.filter((u) => u.kind === 'minion' && u.team === 'ally' && u.lane === 'top').map((u) => u.minionType).sort();
-  assert.deepEqual(types, ['melee', 'melee', 'melee', 'ranged']);
+  assert.deepEqual(types, ['gnome', 'gnome', 'gnome', 'troll']);
 });
 
 test('les sbires suivent leur ligne et se battent entre eux au milieu', () => {
@@ -122,7 +122,7 @@ test('tour : vise un sbire avant un héros', () => {
   const tw = tower(w, 'enemy', 'top', 'outer');
   place(a, tw.x - 200, tw.y);
   // un sbire allié près de la tour
-  w.pendingSpawns.push({ at: 0, team: 'ally', lane: 'top', type: 'melee' });
+  w.pendingSpawns.push({ at: 0, team: 'ally', lane: 'top', type: 'gnome' });
   run(w, DT);
   const m = w.units.find((u) => u.kind === 'minion' && u.team === 'ally');
   place(m, tw.x - 250, tw.y);
@@ -139,7 +139,7 @@ test('tour : le héros qui frappe un défenseur sous la tour attire les tirs, ma
   const tw = tower(w, 'enemy', 'top', 'outer');
   const a = getUnit(w, 'a');
   const b1 = getUnit(w, 'b1');
-  w.pendingSpawns.push({ at: 0, team: 'ally', lane: 'top', type: 'melee' });
+  w.pendingSpawns.push({ at: 0, team: 'ally', lane: 'top', type: 'gnome' });
   run(w, DT);
   const m = w.units.find((u) => u.kind === 'minion' && u.team === 'ally');
   m.hp = m.maxHp = 100000; // le sbire sert d'appât et ne meurt pas

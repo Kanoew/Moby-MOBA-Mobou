@@ -180,9 +180,9 @@
         "name": "Coupe éclair",
         "kind": "dash",
         "cooldownMs": [
-          8000,
-          7000,
-          6000
+          5000,
+          5000,
+          5000
         ],
         "range": [
           340,
@@ -225,9 +225,9 @@
         "name": "Cercle des lames",
         "kind": "slow_zone",
         "cooldownMs": [
-          70000,
-          60000,
-          50000
+          45000,
+          45000,
+          45000
         ],
         "radius": 200,
         "durationMs": 4000,
@@ -421,8 +421,8 @@
         "name": "Triple bouquet",
         "kind": "fan",
         "cooldownMs": [
-          7000,
-          6000,
+          5000,
+          5000,
           5000
         ],
         "count": 3,
@@ -455,9 +455,9 @@
         "name": "Couronne de ronces",
         "kind": "thorns",
         "cooldownMs": [
-          70000,
-          60000,
-          50000
+          45000,
+          45000,
+          45000
         ],
         "radius": 230,
         "armDelayMs": 600,
@@ -636,9 +636,9 @@
         "name": "Ruée",
         "kind": "dash",
         "cooldownMs": [
-          9000,
-          8000,
-          7000
+          5000,
+          5000,
+          5000
         ],
         "range": [
           260,
@@ -688,9 +688,9 @@
         "name": "Bouclier",
         "kind": "shield",
         "cooldownMs": [
-          60000,
-          50000,
-          40000
+          45000,
+          45000,
+          45000
         ],
         "amount": [
           150,

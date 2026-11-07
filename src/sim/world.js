@@ -5,7 +5,7 @@
 //  - duel  (sans `match`) : deux héros, la mort d'un héros termine la partie (lot 1).
 //  - match (avec `match`) : lignes, tours, noyaux, vagues, mort et réapparition (lot 2).
 import { findPath } from './path.js';
-import { initProgression, awardXp, spendPoint } from './progression.js';
+import { initProgression, awardXp, spendPoint, tickPassiveXp } from './progression.js';
 import { startCast, updateCast, updateZones, updateStatuses, effectiveSpeed } from './abilities.js';
 import { initJungle, updateJungle, updateMonster, onMonsterKilled, chooseBonusLane, takeBonusWave } from './jungle.js';
 
@@ -286,6 +286,10 @@ export function step(world, dtMs) {
   if (world.over) return;
   world.events.length = 0;
   world.time += dtMs;
+  if (world.match && world.match.timeLimitMs && world.time >= world.match.timeLimitMs) {
+    endByTime(world);
+    return;
+  }
 
   if (world.match) {
     updateWaves(world);
@@ -300,6 +304,7 @@ export function step(world, dtMs) {
     else if (u.kind === 'tower') updateTower(world, u, dtMs);
     else if (u.kind === 'monster') updateMonster(world, u, dtMs);
   }
+  if (world.match) tickPassiveXp(world, dtMs);
   updateProjectiles(world, dtMs);
   updateZones(world, dtMs);
   updateStatuses(world);
@@ -309,6 +314,19 @@ export function step(world, dtMs) {
   if (world.units.some((u) => (u.kind === 'minion' || u.kind === 'monster') && u.dead)) {
     world.units = world.units.filter((u) => !((u.kind === 'minion' || u.kind === 'monster') && u.dead));
   }
+}
+
+/** Temps écoulé : l'équipe qui a le plus entamé les structures adverses gagne, puis les éliminations, sinon égalité. */
+function endByTime(world) {
+  const dealt = (team) => world.units.filter((u) => (u.kind === 'tower' || u.kind === 'core') && u.team !== team).reduce((a, u) => a + (u.maxHp - u.hp), 0);
+  const a = dealt(TEAM_ALLY);
+  const b = dealt(TEAM_ENEMY);
+  let winnerTeam = null;
+  if (Math.abs(a - b) > 1) winnerTeam = a > b ? TEAM_ALLY : TEAM_ENEMY;
+  else if (world.stats.ally.kills !== world.stats.enemy.kills) winnerTeam = world.stats.ally.kills > world.stats.enemy.kills ? TEAM_ALLY : TEAM_ENEMY;
+  world.over = { winnerTeam, atMs: world.time, reason: 'time', structureDamage: { ally: Math.round(a), enemy: Math.round(b) } };
+  emit(world, { type: 'time_limit', winnerTeam });
+  emit(world, { type: 'match_over', winnerTeam });
 }
 
 function updateHero(world, hero, dtMs) {
@@ -461,7 +479,12 @@ export function applyDamage(world, source, target, raw) {
   }
   target.hp = Math.max(0, target.hp - amount);
   emit(world, { type: 'damage', sourceId: source ? source.id : null, targetId: target.id, amount, absorbed, hp: target.hp });
-  if (target.kind === 'monster' && source && source.team !== 'neutral') target.aggroId = source.id;
+  if (target.kind === 'monster' && source && source.team !== 'neutral') {
+    target.aggroId = source.id;
+    // Tout le camp se défend ensemble.
+    const camp = target.campId ? world.camps.find((c) => c.id === target.campId) : null;
+    if (camp) for (const id of camp.unitIds) if (!getUnit(world, id).dead) getUnit(world, id).aggroId = source.id;
+  }
 
   if (source && source.kind === 'hero' && target.kind === 'hero') {
     target.damagers[source.id] = world.time;

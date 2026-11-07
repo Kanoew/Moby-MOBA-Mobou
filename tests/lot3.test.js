@@ -8,7 +8,9 @@ import { cooldownLeft, curveAt } from '../src/sim/abilities.js';
 const load = (p) => JSON.parse(readFileSync(new URL(`../data/${p}`, import.meta.url), 'utf8'));
 const map = load('map-3v3.json');
 const heroDefs = load('heroes.json');
-const match = load('match.json');
+const matchFull = load('match.json');
+// Les tests de règles figent l'XP du temps pour des valeurs exactes ; l'XP du temps a son propre test.
+const match = { ...matchFull, progression: { ...matchFull.progression, passiveXpPerSec: 0 } };
 const DT = 16;
 
 function mk(roster) {
@@ -25,7 +27,7 @@ const count = (w, type) => w.log.filter((e) => e.type === type).length;
 const open = (w) => { run(w, 5200); };
 /** Ajoute un ennemi factice (sbire) très résistant, immobile, pour mesurer les touches. */
 function dummy(w, x, y, team = 'enemy', hp = 100000) {
-  w.pendingSpawns.push({ at: 0, team, lane: 'top', type: 'melee' });
+  w.pendingSpawns.push({ at: 0, team, lane: 'top', type: 'gnome' });
   run(w, DT);
   const m = [...w.units].reverse().find((u) => u.kind === 'minion' && u.team === team);
   m.hp = m.maxHp = hp;
@@ -106,7 +108,7 @@ test('XP : un sbire tué à proximité donne de l\'XP aux héros adverses', () =
   issueCommand(w, 'a', { type: 'target', targetId: m.id });
   run(w, 1500);
   assert.ok(m.dead);
-  assert.equal(a.xp, match.units.melee.xp);
+  assert.equal(a.xp, match.units.gnome.xp);
 });
 
 test('compétence : verrouillée au rang 0, puis lançable ; recharge par rang', () => {
@@ -120,8 +122,9 @@ test('compétence : verrouillée au rang 0, puis lançable ; recharge par rang',
   assert.equal(issueCommand(w, 'a', { type: 'skill', x: 1000, y: 900 }), false, 'déjà en lancer');
   run(w, 500);
   assert.equal(issueCommand(w, 'a', { type: 'skill', x: 1000, y: 900 }), false, 'en recharge');
-  assert.ok(cooldownLeft(w, a, 'skill') > 7000 && cooldownLeft(w, a, 'skill') <= 8000);
-  run(w, 8000);
+  const cd = heroDefs.yeji.abilities.skill.cooldownMs[0];
+  assert.ok(cooldownLeft(w, a, 'skill') > cd - 1000 && cooldownLeft(w, a, 'skill') <= cd);
+  run(w, cd);
   assert.equal(issueCommand(w, 'a', { type: 'skill', x: 1000, y: 900 }), true);
 });
 
@@ -375,7 +378,7 @@ test('camps : absents avant 0:30, symétriques, passifs, ripostent, réapparaiss
   assert.equal(w.units.filter((u) => u.kind === 'monster').length, 0);
   run(w, 400);
   const mons = w.units.filter((u) => u.kind === 'monster');
-  assert.equal(mons.length, 10, 'cinq monstres par côté');
+  assert.equal(mons.length, 12, 'deux camps de trois monstres par côté');
   // symétrie : chaque camp a son miroir exact
   for (const c of w.camps.filter((c) => c.side === 'ally')) {
     const mirror = w.camps.find((m) => m.side === 'enemy' && m.id.endsWith(c.id.split('-')[2]));
@@ -385,7 +388,7 @@ test('camps : absents avant 0:30, symétriques, passifs, ripostent, réapparaiss
   // passifs : un héros qui passe à côté ne se fait pas attaquer
   open(w);
   const a = getUnit(w, 'a');
-  const camp = w.camps.find((c) => c.side === 'ally' && c.monsters.length === 2);
+  const camp = w.camps.find((c) => c.side === 'ally' && c.kind === 'fleurs');
   const mon = getUnit(w, camp.unitIds[0]);
   place(a, mon.x + 80, mon.y);
   run(w, 2000);
@@ -419,7 +422,7 @@ test('monstre : abandonne la poursuite hors de sa laisse, revient et se soigne',
   run(w, 30500);
   open(w);
   const a = getUnit(w, 'a');
-  const camp = w.camps.find((c) => c.side === 'ally' && c.monsters.length === 2);
+  const camp = w.camps.find((c) => c.side === 'ally' && c.kind === 'fleurs');
   const mon = getUnit(w, camp.unitIds[0]);
   mon.hp = mon.maxHp * 0.5;
   mon.aggroId = 'a';
@@ -497,16 +500,17 @@ test('récompense du boss : vague renforcée sur la ligne choisie par le joueur 
   };
   run(w, 2000); // laisse finir l'étalement de la vague en cours
   w.log.length = 0;
-  run(w, 30000 - (w.time % 30000) + 3000); // jusqu'après la prochaine vague
+  const iv = match.waves.intervalMs;
+  run(w, iv - ((w.time - match.waves.firstMs) % iv) + 3000); // jusqu'après la prochaine vague
   const mine = (lane) => w.units.filter((u) => u.kind === 'minion' && u.team === 'ally' && u.lane === lane && u.minionType === 'brute');
   const brutesBottom = w.log.filter((e) => e.type === 'minion_spawn' && e.team === 'ally' && e.lane === 'bottom').length;
   const normalTop = w.log.filter((e) => e.type === 'minion_spawn' && e.team === 'ally' && e.lane === 'top').length;
-  assert.equal(brutesBottom, 6, 'ligne choisie : 4 sbires + 2 brutes');
+  assert.equal(brutesBottom, 6, 'ligne choisie : 3 gnomes + 1 troll, plus 2 trolls');
   assert.equal(normalTop, 4, 'l\'autre ligne : vague normale');
   assert.equal(w.bonus.pending.ally.bottom, 0, 'bonus consommé');
   void composition; void mine;
   w.log.length = 0;
-  run(w, 31000);
+  run(w, iv + 1000);
   assert.equal(w.log.filter((e) => e.type === 'minion_spawn' && e.team === 'ally' && e.lane === 'bottom').length, 4, 'vague suivante normale');
 });
 

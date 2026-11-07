@@ -13,7 +13,7 @@ async function boot() {
   const [arena, map3v3, matchCfg, heroDefs] = await Promise.all(
     ['data/arena.json', 'data/map-3v3.json', 'data/match.json', 'data/heroes.json'].map((p) => fetch(p).then((r) => r.json())),
   );
-  const images = await loadImages(collectImagePaths(heroDefs));
+  const images = await loadImages(collectImagePaths(heroDefs, matchCfg));
 
   // ?mode=duel : salle d'entraînement du lot 1 (Yeji vs Jennie, sans compétences).
   // ?hero=yeji|sweetie|jennie · ?bot=off (adversaires inertes) · ?debug=1 · ?speed=N · ?seed=N
@@ -137,8 +137,9 @@ async function boot() {
     renderer.draw(dt, PLAYER_ID, aim ? { slot: aim.slot, x: pointer.x, y: pointer.y } : null);
     if (world.over) {
       const won = world.over.winnerTeam === TEAM_ALLY;
+      const verdict = world.over.winnerTeam === null ? 'Égalité' : won ? 'Victoire' : 'Défaite';
       status.hidden = false;
-      status.textContent = `${won ? 'Victoire' : 'Défaite'} · ${Math.floor(world.over.atMs / 60000)}:${String(Math.floor(world.over.atMs / 1000) % 60).padStart(2, '0')} · N pour rejouer`;
+      status.textContent = `${world.over.reason === 'time' ? 'Temps écoulé · ' : ''}${verdict} · ${Math.floor(world.over.atMs / 60000)}:${String(Math.floor(world.over.atMs / 1000) % 60).padStart(2, '0')} · N pour rejouer`;
     }
     requestAnimationFrame(frame);
   }

@@ -1,5 +1,5 @@
 // Jungle : petits camps symétriques, boss au centre exact, récompense de vague renforcée.
-import { combatTick, edgeDistance, emit, getUnit, isTargetable, newUnit, stepToward } from './world.js';
+import { applyDamage, combatTick, edgeDistance, emit, face, getUnit, isTargetable, newUnit, stepToward } from './world.js';
 import { awardXp } from './progression.js';
 
 const TEAMS = ['ally', 'enemy'];
@@ -7,11 +7,21 @@ const TEAMS = ['ally', 'enemy'];
 export function initJungle(world) {
   const { match, map } = world;
   world.camps = [];
-  match.jungle.camps.forEach((c, i) => {
+  match.jungle.camps.forEach((c) => {
     for (const side of TEAMS) {
       // Les camps de l'autre côté sont le miroir exact : mêmes distances d'accès pour les deux équipes.
       const x = side === 'ally' ? c.x : map.width - c.x;
-      world.camps.push({ id: `camp-${side}-${i}`, side, x, y: c.y, monsters: c.monsters, unitIds: [], respawnAt: match.jungle.startMs });
+      const flip = side === 'ally' ? 1 : -1;
+      world.camps.push({
+        id: `camp-${side}-${c.id}`,
+        kind: c.id,
+        side,
+        x,
+        y: c.y,
+        units: c.units.map((u) => ({ type: u.type, dx: u.dx * flip, dy: u.dy })),
+        unitIds: [],
+        respawnAt: match.jungle.startMs,
+      });
     }
   });
   world.boss = {
@@ -29,7 +39,8 @@ function spawnMonster(world, type, x, y, campId) {
   const def = world.match.units[type];
   const n = world.nextId++;
   const u = newUnit(world, { id: `mon${n}`, kind: 'monster', team: 'neutral', def, x, y, radius: def.radius });
-  Object.assign(u, { monType: type, home: { x, y }, campId, aggroId: null, boss: !!def.boss });
+  Object.assign(u, { monType: type, home: { x, y }, campId, aggroId: null, boss: !!def.boss, special: null, specialReadyAt: 0 });
+  u.facing = { x: 0, y: 1 }; // les monstres attendent de face
   return u;
 }
 
@@ -38,10 +49,7 @@ export function updateJungle(world) {
   for (const camp of world.camps) {
     if (camp.respawnAt !== null && world.time >= camp.respawnAt) {
       camp.respawnAt = null;
-      camp.unitIds = camp.monsters.map((type, i) => {
-        const off = (i - (camp.monsters.length - 1) / 2) * 70;
-        return spawnMonster(world, type, camp.x, camp.y + off, camp.id).id;
-      });
+      camp.unitIds = camp.units.map((c) => spawnMonster(world, c.type, camp.x + c.dx, camp.y + c.dy, camp.id).id);
       emit(world, { type: 'camp_spawn', campId: camp.id });
     }
   }
@@ -74,7 +82,20 @@ export function updateMonster(world, u, dtMs) {
     if (u.swing) u.swing = null;
     t = null;
   }
+  const sp = u.def.special;
+  if (u.special) {
+    advanceSpecial(world, u, dtMs);
+    return;
+  }
   if (t) {
+    // Souffle en cône : dès qu'il est prêt et que la cible est à portée, sinon morsure.
+    if (sp && !u.swing && world.time >= u.specialReadyAt && Math.hypot(t.x - u.x, t.y - u.y) <= sp.range * 0.9) {
+      face(u, t.x, t.y);
+      u.special = { t: 0, hit: false, dir: { ...u.facing } };
+      u.specialReadyAt = world.time + sp.cooldownMs;
+      emit(world, { type: 'special_start', unitId: u.id, kind: sp.kind });
+      return;
+    }
     if (u.swing || edgeDistance(u, t) <= u.def.auto.range) combatTick(world, u, t, dtMs);
     else stepToward(world, u, t.x, t.y, dtMs);
     return;
@@ -82,6 +103,30 @@ export function updateMonster(world, u, dtMs) {
   // Sans cible : retour au point d'attache, soin rapide.
   if (Math.hypot(u.x - u.home.x, u.y - u.home.y) > 4) stepToward(world, u, u.home.x, u.home.y, dtMs, 1.6);
   u.hp = Math.min(u.maxHp, u.hp + (u.maxHp * j.regenPctPerSec * dtMs) / 1000);
+}
+
+function advanceSpecial(world, u, dtMs) {
+  const sp = u.def.special;
+  const s = u.special;
+  s.t += dtMs;
+  if (!s.hit && s.t >= sp.hitMs) {
+    s.hit = true;
+    const half = (sp.halfAngleDeg * Math.PI) / 180;
+    for (const e of world.units) {
+      if (e.dead || e.team === 'neutral' || (e.kind !== 'hero' && e.kind !== 'minion') || e.invisible) continue;
+      const dx = e.x - u.x;
+      const dy = e.y - u.y;
+      const d = Math.hypot(dx, dy);
+      if (d > sp.range + e.radius) continue;
+      const cos = d < 0.001 ? 1 : (dx * s.dir.x + dy * s.dir.y) / d;
+      const margin = d > e.radius ? Math.asin(Math.min(1, e.radius / d)) : Math.PI;
+      if (Math.acos(Math.max(-1, Math.min(1, cos))) <= half + margin) {
+        emit(world, { type: 'special_hit', unitId: u.id, targetId: e.id });
+        applyDamage(world, u, e, sp.damage);
+      }
+    }
+  }
+  if (s.t >= sp.durationMs) u.special = null;
 }
 
 /** Appelé à la mort d'un monstre : XP, réapparition du camp, récompense du boss. */

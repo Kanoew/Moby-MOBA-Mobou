@@ -51,6 +51,21 @@ export function gainXp(world, hero, amount) {
   }
 }
 
+/** XP du temps qui passe : chaque héros vivant en gagne `passiveXpPerSec` par seconde. */
+export function tickPassiveXp(world, dtMs) {
+  const rate = world.match && world.match.progression.passiveXpPerSec;
+  if (!rate) return;
+  for (const h of world.heroes) {
+    if (h.dead) continue;
+    h.xpBuffer = (h.xpBuffer || 0) + (rate * dtMs) / 1000;
+    if (h.xpBuffer >= 1) {
+      const n = Math.floor(h.xpBuffer);
+      h.xpBuffer -= n;
+      gainXp(world, h, n);
+    }
+  }
+}
+
 /** XP partagée entre les héros vivants de l'équipe qui sont assez proches du lieu de la mort. */
 export function awardXp(world, team, x, y, amount) {
   const match = world.match;

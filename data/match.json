@@ -24,75 +24,23 @@
   },
   "waves": {
     "firstMs": 30000,
-    "intervalMs": 30000,
+    "intervalMs": 25000,
     "staggerMs": 450,
     "composition": [
-      "melee",
-      "melee",
-      "melee",
-      "ranged"
+      "gnome",
+      "gnome",
+      "gnome",
+      "troll"
     ]
   },
   "units": {
-    "melee": {
-      "kind": "minion",
-      "name": "Sbire",
-      "radius": 20,
-      "stats": {
-        "hp": 240,
-        "atk": 12,
-        "def": 0,
-        "speed": 150
-      },
-      "ai": {
-        "aggro": 420,
-        "leash": 650
-      },
-      "auto": {
-        "kind": "melee",
-        "range": 60,
-        "hitSlack": 20,
-        "intervalMs": 1000,
-        "hitMs": 250,
-        "durationMs": 450
-      },
-      "xp": 16
-    },
-    "ranged": {
-      "kind": "minion",
-      "name": "Sbire à distance",
-      "radius": 18,
-      "stats": {
-        "hp": 160,
-        "atk": 16,
-        "def": 0,
-        "speed": 150
-      },
-      "ai": {
-        "aggro": 420,
-        "leash": 650
-      },
-      "auto": {
-        "kind": "projectile",
-        "range": 280,
-        "intervalMs": 1200,
-        "hitMs": 300,
-        "durationMs": 500,
-        "projectile": {
-          "speed": 700,
-          "radius": 10,
-          "maxLifeMs": 2500
-        }
-      },
-      "xp": 12
-    },
     "tower-outer": {
       "kind": "tower",
       "tier": "outer",
       "name": "Tour extérieure",
       "radius": 60,
       "stats": {
-        "hp": 1800,
+        "hp": 1300,
         "atk": 130,
         "def": 30,
         "speed": 0
@@ -116,7 +64,7 @@
       "name": "Tour intérieure",
       "radius": 66,
       "stats": {
-        "hp": 2200,
+        "hp": 1600,
         "atk": 140,
         "def": 30,
         "speed": 0
@@ -139,79 +87,15 @@
       "name": "Noyau",
       "radius": 90,
       "stats": {
-        "hp": 3000,
+        "hp": 2000,
         "atk": 0,
         "def": 20,
         "speed": 0
       }
     },
-    "brute": {
-      "kind": "minion",
-      "name": "Brute",
-      "radius": 26,
-      "xp": 30,
-      "stats": {
-        "hp": 520,
-        "atk": 22,
-        "def": 15,
-        "speed": 140
-      },
-      "ai": {
-        "aggro": 420,
-        "leash": 650
-      },
-      "auto": {
-        "kind": "melee",
-        "range": 70,
-        "hitSlack": 20,
-        "intervalMs": 1100,
-        "hitMs": 300,
-        "durationMs": 520
-      }
-    },
-    "small": {
-      "kind": "monster",
-      "name": "Petit monstre",
-      "radius": 24,
-      "xp": 40,
-      "stats": {
-        "hp": 220,
-        "atk": 14,
-        "def": 0,
-        "speed": 170
-      },
-      "auto": {
-        "kind": "melee",
-        "range": 60,
-        "hitSlack": 20,
-        "intervalMs": 1000,
-        "hitMs": 250,
-        "durationMs": 450
-      }
-    },
-    "big": {
-      "kind": "monster",
-      "name": "Gros monstre",
-      "radius": 34,
-      "xp": 80,
-      "stats": {
-        "hp": 420,
-        "atk": 22,
-        "def": 10,
-        "speed": 160
-      },
-      "auto": {
-        "kind": "melee",
-        "range": 70,
-        "hitSlack": 20,
-        "intervalMs": 1200,
-        "hitMs": 300,
-        "durationMs": 520
-      }
-    },
     "boss": {
       "kind": "monster",
-      "name": "Boss",
+      "name": "Cerbère",
       "radius": 70,
       "xp": 300,
       "boss": true,
@@ -226,8 +110,174 @@
         "range": 90,
         "hitSlack": 30,
         "intervalMs": 1600,
-        "hitMs": 500,
-        "durationMs": 800
+        "hitMs": 320,
+        "durationMs": 645
+      },
+      "special": {
+        "kind": "cone",
+        "name": "Souffle de braises",
+        "range": 320,
+        "halfAngleDeg": 35,
+        "damage": 55,
+        "cooldownMs": 7000,
+        "hitMs": 510,
+        "durationMs": 1180
+      },
+      "sprite": {
+        "family": "cerbere",
+        "scale": 0.837
+      }
+    },
+    "gnome": {
+      "kind": "minion",
+      "name": "Gnome",
+      "radius": 20,
+      "xp": 16,
+      "stats": {
+        "hp": 160,
+        "atk": 14,
+        "def": 0,
+        "speed": 150
+      },
+      "ai": {
+        "aggro": 420,
+        "leash": 650
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 60,
+        "hitSlack": 20,
+        "intervalMs": 1000,
+        "hitMs": 235,
+        "durationMs": 470
+      },
+      "sprite": {
+        "family": "gnome",
+        "scale": 0.42
+      }
+    },
+    "troll": {
+      "kind": "minion",
+      "name": "Troll",
+      "radius": 28,
+      "xp": 30,
+      "stats": {
+        "hp": 400,
+        "atk": 22,
+        "def": 15,
+        "speed": 140
+      },
+      "ai": {
+        "aggro": 420,
+        "leash": 650
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 80,
+        "hitSlack": 24,
+        "intervalMs": 1400,
+        "hitMs": 490,
+        "durationMs": 850
+      },
+      "sprite": {
+        "family": "troll",
+        "scale": 0.62
+      }
+    },
+    "fleur-large": {
+      "kind": "monster",
+      "name": "Grande fleur",
+      "radius": 28,
+      "xp": 70,
+      "stats": {
+        "hp": 420,
+        "atk": 22,
+        "def": 10,
+        "speed": 170
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 70,
+        "hitSlack": 24,
+        "intervalMs": 1200,
+        "hitMs": 335,
+        "durationMs": 600
+      },
+      "sprite": {
+        "family": "fleur",
+        "scale": 0.55
+      }
+    },
+    "fleur-small": {
+      "kind": "monster",
+      "name": "Petite fleur",
+      "radius": 18,
+      "xp": 30,
+      "stats": {
+        "hp": 220,
+        "atk": 14,
+        "def": 0,
+        "speed": 170
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 60,
+        "hitSlack": 24,
+        "intervalMs": 1000,
+        "hitMs": 335,
+        "durationMs": 600
+      },
+      "sprite": {
+        "family": "fleur",
+        "scale": 0.33
+      }
+    },
+    "dragon-large": {
+      "kind": "monster",
+      "name": "Grand dragon",
+      "radius": 28,
+      "xp": 70,
+      "stats": {
+        "hp": 460,
+        "atk": 24,
+        "def": 10,
+        "speed": 170
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 75,
+        "hitSlack": 24,
+        "intervalMs": 1200,
+        "hitMs": 385,
+        "durationMs": 690
+      },
+      "sprite": {
+        "family": "dragon",
+        "scale": 0.59
+      }
+    },
+    "dragon-small": {
+      "kind": "monster",
+      "name": "Petit dragon",
+      "radius": 18,
+      "xp": 30,
+      "stats": {
+        "hp": 240,
+        "atk": 14,
+        "def": 0,
+        "speed": 170
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 60,
+        "hitSlack": 24,
+        "intervalMs": 1000,
+        "hitMs": 385,
+        "durationMs": 690
+      },
+      "sprite": {
+        "family": "dragon",
+        "scale": 0.35
       }
     }
   },
@@ -270,7 +320,8 @@
     "heroKillXp": {
       "base": 80,
       "perLevel": 25
-    }
+    },
+    "passiveXpPerSec": 2
   },
   "slowMinSpeed": 0.4,
   "jungle": {
@@ -280,26 +331,47 @@
     "regenPctPerSec": 0.2,
     "camps": [
       {
-        "x": 760,
-        "y": 660,
-        "monsters": [
-          "small",
-          "small"
+        "id": "fleurs",
+        "x": 800,
+        "y": 650,
+        "units": [
+          {
+            "type": "fleur-large",
+            "dx": 0,
+            "dy": -20
+          },
+          {
+            "type": "fleur-small",
+            "dx": -48,
+            "dy": 20
+          },
+          {
+            "type": "fleur-small",
+            "dx": 48,
+            "dy": 20
+          }
         ]
       },
       {
-        "x": 760,
-        "y": 1140,
-        "monsters": [
-          "small",
-          "small"
-        ]
-      },
-      {
-        "x": 1120,
-        "y": 900,
-        "monsters": [
-          "big"
+        "id": "dragons",
+        "x": 800,
+        "y": 1150,
+        "units": [
+          {
+            "type": "dragon-large",
+            "dx": 0,
+            "dy": -20
+          },
+          {
+            "type": "dragon-small",
+            "dx": -56,
+            "dy": 20
+          },
+          {
+            "type": "dragon-small",
+            "dx": 56,
+            "dy": 20
+          }
         ]
       }
     ]
@@ -314,8 +386,202 @@
     "choiceMs": 10000,
     "defaultLane": "top",
     "reinforced": [
-      "brute",
-      "brute"
+      "troll",
+      "troll"
     ]
+  },
+  "timeLimitMs": 600000,
+  "sprites": {
+    "layout": {
+      "cell": [
+        384,
+        288
+      ],
+      "anchor": [
+        192,
+        248
+      ],
+      "directions": {
+        "right": 0,
+        "left": 1,
+        "front": 2,
+        "back": 3
+      }
+    },
+    "families": {
+      "gnome": {
+        "walk": {
+          "sheet": "assets/monsters/gnome-marche.png",
+          "durationsMs": [
+            90,
+            90,
+            90,
+            90,
+            90,
+            90
+          ]
+        },
+        "attack": {
+          "sheet": "assets/monsters/gnome-attaque.png",
+          "durationsMs": [
+            70,
+            70,
+            95,
+            65,
+            80,
+            90
+          ]
+        }
+      },
+      "troll": {
+        "walk": {
+          "sheet": "assets/monsters/troll-marche.png",
+          "durationsMs": [
+            125,
+            125,
+            125,
+            125,
+            125,
+            125
+          ]
+        },
+        "attack": {
+          "sheet": "assets/monsters/troll-attaque.png",
+          "durationsMs": [
+            110,
+            150,
+            230,
+            85,
+            130,
+            145
+          ]
+        }
+      },
+      "fleur": {
+        "walk": {
+          "sheet": "assets/monsters/fleur-marche.png",
+          "durationsMs": [
+            105,
+            105,
+            105,
+            105,
+            105,
+            105
+          ]
+        },
+        "attack": {
+          "sheet": "assets/monsters/fleur-attaque.png",
+          "durationsMs": [
+            70,
+            100,
+            165,
+            55,
+            85,
+            125
+          ]
+        }
+      },
+      "dragon": {
+        "walk": {
+          "sheet": "assets/monsters/dragon-marche.png",
+          "durationsMs": [
+            115,
+            115,
+            115,
+            115,
+            115,
+            115
+          ]
+        },
+        "attack": {
+          "sheet": "assets/monsters/dragon-attaque.png",
+          "durationsMs": [
+            100,
+            125,
+            160,
+            70,
+            100,
+            135
+          ]
+        }
+      },
+      "cerbere": {
+        "walk": {
+          "sheet": "assets/monsters/cerbere-marche.png",
+          "durationsMs": [
+            125,
+            125,
+            125,
+            125,
+            125,
+            125
+          ]
+        },
+        "attack": {
+          "sheet": "assets/monsters/cerbere-morsure.png",
+          "durationsMs": [
+            85,
+            110,
+            125,
+            65,
+            100,
+            160
+          ]
+        },
+        "breath": {
+          "sheet": "assets/monsters/cerbere-souffle.png",
+          "durationsMs": [
+            120,
+            170,
+            220,
+            230,
+            250,
+            190
+          ]
+        },
+        "flames": {
+          "sheet": "assets/monsters/cerbere-flammes.png",
+          "cell": [
+            512,
+            512
+          ],
+          "grid": [
+            3,
+            2
+          ],
+          "frameDurationsMs": [
+            45,
+            65,
+            125,
+            170,
+            95,
+            80
+          ],
+          "anchor": [
+            37,
+            264
+          ],
+          "startMs": 510,
+          "emit": {
+            "right": [
+              296,
+              103
+            ],
+            "left": [
+              88,
+              103
+            ],
+            "front": [
+              192,
+              117
+            ],
+            "back": [
+              192,
+              54
+            ]
+          }
+        }
+      }
+    }
   }
 }
