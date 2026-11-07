@@ -478,3 +478,68 @@ test('lobby : durée réglable pour les tests (?lobbyMs=)', () => {
   lobbyTick(st, 2100);
   assert.equal(st.validated, true);
 });
+
+
+test('récupération : la poursuite reprend après impact sans accélérer la cadence', () => {
+  const w = duo(); run(w, 5200);
+  const a = getUnit(w, 'a'), b = getUnit(w, 'b');
+  place(a, 1500, 450); place(b, 1600, 450);
+  issueCommand(w, 'a', { type: 'attack', targetId: 'b' });
+  run(w, a.timing.hitMs + DT);
+  assert.ok(a.swing?.hitDone);
+  const ready = a.nextAttackAt;
+  place(b, 1900, 450);
+  const x = a.x;
+  run(w, 64);
+  assert.ok(a.x > x, 'poursuite immédiate sans attendre la fin de la pose');
+  assert.equal(a.nextAttackAt, ready, 'aucun reset de cadence');
+});
+
+test('commandes pendant ultime : dernière intention, relâchement du joystick et stop', () => {
+  const w = duo('sweetie'); run(w, 5200);
+  const a = getUnit(w, 'a'); levelTo(w, 'a', 3);
+  issueCommand(w, 'a', { type: 'ult' });
+  issueCommand(w, 'a', { type: 'steer', x: 1, y: 0 });
+  issueCommand(w, 'a', { type: 'steer', x: 0, y: 0 });
+  run(w, 500);
+  assert.equal(a.steer, null, 'relâcher avant la fin annule le déplacement mémorisé');
+  place(a, 1500, 450); place(getUnit(w, 'b'), 1600, 450);
+  issueCommand(w, 'a', { type: 'attack', targetId: 'b' });
+  run(w, 32);
+  issueCommand(w, 'a', { type: 'stop' });
+  const hp = getUnit(w, 'b').hp;
+  run(w, 1500);
+  assert.equal(a.targetId, null);
+  assert.equal(getUnit(w, 'b').hp, hp, 'stop suspend aussi les attaques');
+});
+
+test('farm : enchaîne les sbires à portée mais jamais un héros voisin', () => {
+  const w = duo(); run(w, 5200);
+  const a = getUnit(w, 'a'); place(a, 1500, 450); place(getUnit(w, 'b'), 1600, 450);
+  for (let i = 0; i < 2; i++) w.pendingSpawns.push({ at: 0, team: 'enemy', lane: 'top', type: 'gnome' });
+  run(w, DT);
+  const mobs = w.units.filter(u => u.kind === 'minion');
+  for (const m of mobs) { place(m, 1580, 450); m.speed = 0; }
+  attackAction(w, a, cmd => issueCommand(w, 'a', cmd), null, 'farm');
+  const first = getUnit(w, a.targetId);
+  applyDamage(w, a, first, 99999);
+  run(w, DT);
+  assert.ok(a.targetId && a.targetId !== first.id && a.targetId !== 'b');
+  applyDamage(w, a, getUnit(w, a.targetId), 99999);
+  run(w, DT);
+  assert.equal(a.targetId, null, 'ne bascule pas vers le héros');
+});
+
+
+test('combo : une compétence prête demandée dans les dernières 160 ms est enchaînée', () => {
+  const w = duo('sweetie'); run(w, 5200); levelTo(w, 'a', 3);
+  const a = getUnit(w, 'a');
+  issueCommand(w, 'a', { type: 'level_up', slot: 'skill' });
+  issueCommand(w, 'a', { type: 'ult' });
+  assert.equal(issueCommand(w, 'a', { type: 'skill', x: 1500, y: 450 }), false, 'trop tôt');
+  run(w, 300);
+  assert.equal(issueCommand(w, 'a', { type: 'skill', x: 1500, y: 450 }), true);
+  run(w, 144);
+  assert.equal(a.cast.slot, 'skill', 'combo lancé après la fin de l’ultime');
+  assert.ok(a.cd.skill > w.time);
+});
