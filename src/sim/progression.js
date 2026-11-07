@@ -18,14 +18,18 @@ export function initProgression(hero, match) {
   if (match) applyLevelStats(hero, match, false);
 }
 
+export function refreshStats(hero, match) {
+  if (match && match.progression) applyLevelStats(hero, match, true);
+}
+
 function applyLevelStats(hero, match, keepRatio = true) {
   const g = match.progression.growth;
   const k = hero.level - 1;
-  const maxHp = Math.round(hero.base.hp * (1 + g.hp * k));
+  const maxHp = Math.round(hero.base.hp * (1 + g.hp * k)) + (hero.fx ? hero.fx.hp : 0);
   hero.hp = keepRatio ? Math.min(maxHp, hero.hp + (maxHp - hero.maxHp)) : maxHp;
   hero.maxHp = maxHp;
   hero.atk = Math.round(hero.base.atk * (1 + g.atk * k));
-  hero.def_ = Math.round(hero.base.def * (1 + g.def * k));
+  hero.def_ = Math.round(hero.base.def * (1 + g.def * k)) + (hero.fx ? hero.fx.def : 0);
   hero.autoMult = 1 + match.progression.autoRankBonus[hero.rank.auto - 1];
 }
 

@@ -6,7 +6,9 @@
 //  - match (avec `match`) : lignes, tours, noyaux, vagues, mort et réapparition (lot 2).
 import { findPath } from './path.js';
 import { initProgression, awardXp, spendPoint, tickPassiveXp } from './progression.js';
-import { startCast, updateCast, updateZones, updateStatuses, effectiveSpeed } from './abilities.js';
+import { startCast, updateCast, updateZones, updateStatuses, effectiveSpeed, skillHitBonus, skillHeroHit } from './abilities.js';
+import { awardGold, buyItem, effectiveDefense, emptyFx, heroAutoDamage, onHeroDamaged, sellItem, startingGold } from './shop.js';
+import { cancelRecall, startRecall, updateRecall } from './recall.js';
 import { initJungle, updateJungle, updateMonster, onMonsterKilled, chooseBonusLane, takeBonusWave } from './jungle.js';
 
 export const TEAM_ALLY = 'ally';
@@ -84,7 +86,7 @@ export function newUnit(world, { id, kind, team, def, x, y, radius }) {
   return u;
 }
 
-function spawnPoint(world, team, slot) {
+export function spawnPoint(world, team, slot) {
   const sp = world.map.spawns[team];
   if (!world.match) return { x: sp.x, y: sp.y };
   const { dx, dy } = world.match.spawnSlots;
@@ -145,6 +147,18 @@ export function createWorld({ map, heroDefs, roster, match = null, seed = 1 }) {
       deaths: 0,
       assists: 0,
       damagers: {},
+      // Économie (lot 4) : or, inventaire de trois emplacements, effets agrégés des objets, états du rappel.
+      gold: startingGold(match),
+      items: Array(match && match.items ? match.items.rules.inventorySlots : 3).fill(null),
+      starterBought: false,
+      fx: emptyFx(),
+      lastCombatAt: -1e9,
+      duel: { targetId: null, count: 0 },
+      attackers: {},
+      talismanReadyAt: 0,
+      armorReadyAt: 0,
+      defBuff: null,
+      recall: null,
       // Tempérament du bot (déterministe via la graine) : seuil de repli et goût du combat.
       bravery: 0.2 + world.rng() * 0.2,
       aggression: 0.8 + world.rng() * 0.6,
@@ -243,8 +257,17 @@ export function issueCommand(world, heroId, cmd) {
 
   switch (cmd.type) {
     case 'skill':
-    case 'ult':
-      return startCast(world, hero, cmd.type, cmd.x !== undefined ? { x: cmd.x, y: cmd.y } : null);
+    case 'ult': {
+      const ok = startCast(world, hero, cmd.type, cmd.x !== undefined ? { x: cmd.x, y: cmd.y } : null);
+      if (ok) cancelRecall(world, hero, 'cast');
+      return ok;
+    }
+    case 'recall':
+      return startRecall(world, hero);
+    case 'buy':
+      return buyItem(world, hero, cmd.itemId).ok;
+    case 'sell':
+      return sellItem(world, hero, cmd.itemId).ok;
     case 'steer': {
       // Joystick : direction continue (vecteur), sans destination. Relâcher = vecteur nul.
       const len = Math.hypot(cmd.x || 0, cmd.y || 0);
@@ -253,6 +276,7 @@ export function issueCommand(world, heroId, cmd) {
         return true;
       }
       hero.steer = { x: cmd.x / len, y: cmd.y / len };
+      cancelRecall(world, hero, 'move');
       hero.moveTarget = null;
       hero.path = [];
       cancelSwing(world, hero, 'move');
@@ -269,6 +293,7 @@ export function issueCommand(world, heroId, cmd) {
       hero.moveTarget = { ...hero.path[hero.path.length - 1] };
       hero.steer = null;
       hero.stuckMs = 0;
+      cancelRecall(world, hero, 'move');
       cancelSwing(world, hero, 'move');
       return true;
     }
@@ -282,6 +307,7 @@ export function issueCommand(world, heroId, cmd) {
       if (!isTargetable(world, hero, t)) return false;
       if (hero.targetId !== t.id) cancelSwing(world, hero, 'retarget');
       hero.targetId = t.id;
+      cancelRecall(world, hero, 'attack'); // verrouiller un ennemi lance une attaque : le rappel s'interrompt
       emit(world, { type: 'target_lock', heroId: hero.id, targetId: t.id });
       return true;
     }
@@ -367,6 +393,11 @@ function updateHero(world, hero, dtMs) {
     updateCast(world, hero, dtMs);
     return;
   }
+  // Rappel : danse sur place, autos suspendues.
+  if (hero.recall) {
+    updateRecall(world, hero, dtMs);
+    return;
+  }
 
   // Le déplacement (clic ou joystick) suspend les autos. Le héros ne poursuit jamais la cible.
   if (hero.steer) {
@@ -409,7 +440,7 @@ function resolveImpact(world, u, target) {
     // L'impact rate si la cible est sortie de la zone entre le départ et le contact.
     if (edgeDistance(u, target) <= auto.range + (auto.hitSlack || 0)) {
       emit(world, { type: 'hit', heroId: u.id, targetId: target.id });
-      applyDamage(world, u, target, u.atk * (u.autoMult || 1));
+      applyDamage(world, u, target, u.kind === 'hero' ? heroAutoDamage(world, u, target) : u.atk * (u.autoMult || 1));
     } else {
       emit(world, { type: 'whiff', heroId: u.id, targetId: target.id });
     }
@@ -427,7 +458,7 @@ function resolveImpact(world, u, target) {
       dir: { x: u.facing.x, y: u.facing.y },
       speed: p.speed,
       radius: p.radius,
-      damage: u.atk * (u.autoMult || 1),
+      damage: u.kind === 'hero' ? heroAutoDamage(world, u, target) : u.atk * (u.autoMult || 1),
       lifeMs: p.maxLifeMs,
     });
     emit(world, { type: 'spawn_projectile', heroId: u.id, targetId: target.id });
@@ -452,7 +483,9 @@ function updateProjectiles(world, dtMs) {
       if (hit) {
         p.done = true;
         emit(world, { type: 'hit', heroId: p.ownerId, targetId: hit.id, projectileId: p.id, skill: true });
-        applyDamage(world, owner, hit, p.damage);
+        const bonus = p.cast && owner ? skillHitBonus(owner, p.cast, hit.id) : 0;
+        applyDamage(world, owner, hit, p.damage + bonus);
+        if (p.cast && owner) skillHeroHit(world, owner, p.cast, hit);
       } else {
         p.x += p.dir.x * move;
         p.y += p.dir.y * move;
@@ -485,7 +518,8 @@ function updateProjectiles(world, dtMs) {
 
 export function applyDamage(world, source, target, raw) {
   if (target.dead || world.over) return 0;
-  let amount = mitigate(raw, target.def_);
+  const hpBefore = target.hp;
+  let amount = mitigate(raw, effectiveDefense(world, target));
   // Le bouclier absorbe après la Défense et avant les PV.
   let absorbed = 0;
   if (target.shield) {
@@ -499,6 +533,14 @@ export function applyDamage(world, source, target, raw) {
   }
   target.hp = Math.max(0, target.hp - amount);
   emit(world, { type: 'damage', sourceId: source ? source.id : null, targetId: target.id, amount, absorbed, hp: target.hp });
+  if (world.match) {
+    if (source && source.kind === 'hero') source.lastCombatAt = world.time;
+    if (target.kind === 'hero') {
+      target.lastCombatAt = world.time;
+      cancelRecall(world, target, 'damage'); // tout dégât, même absorbé, interrompt le rappel
+      if (target.hp > 0) onHeroDamaged(world, target, source, hpBefore);
+    }
+  }
   if (target.kind === 'monster' && source && source.team !== 'neutral') {
     target.aggroId = source.id;
     // Tout le camp se défend ensemble.
@@ -530,6 +572,7 @@ function kill(world, source, target) {
   target.targetId = null;
   target.shield = null;
   target.cast = null;
+  target.recall = null;
   target.dashing = false;
 
   if (target.kind === 'hero') {
@@ -541,8 +584,12 @@ function kill(world, source, target) {
     }
     const win = world.match ? world.match.assistWindowMs : 0;
     for (const [id, t] of Object.entries(target.damagers)) {
-      if ((!killer || id !== killer.id) && world.time - t <= win) getUnit(world, id).assists++;
+      if ((!killer || id !== killer.id) && world.time - t <= win) {
+        getUnit(world, id).assists++;
+        if (world.match) awardGold(world, getUnit(world, id), world.match.economy.assistGold);
+      }
     }
+    if (killer && world.match) awardGold(world, killer, world.match.economy.killGold);
     target.damagers = {};
     if (world.match) {
       const kx = world.match.progression.heroKillXp;
@@ -568,6 +615,7 @@ function kill(world, source, target) {
     onMonsterKilled(world, source, target);
   } else {
     if (world.match) awardXp(world, otherTeam(target.team), target.x, target.y, target.def.xp);
+    if (source && source.kind === 'hero') awardGold(world, source, target.def.gold || 0); // or au dernier coup
     emit(world, { type: 'minion_died', unitId: target.id });
   }
 }

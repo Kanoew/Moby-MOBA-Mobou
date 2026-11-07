@@ -1,6 +1,6 @@
 # Moby-MOBA-Mobou — MOBA 3v3
 
-Prototype jouable du cahier des charges (`MOBA 3v3 · Cahier des charges`). État actuel : **lot 1 · Terrain et combat**, **lot 2 · Match 3v3 local** et **lot 3 · Progression et jungle**.
+Prototype jouable du cahier des charges (`MOBA 3v3 · Cahier des charges`). État actuel : **lot 1 · Terrain et combat**, **lot 2 · Match 3v3 local**, **lot 3 · Progression et jungle** et **lot 4 · Économie et interface** (or, douze objets, boutique, rappel dansé, tableau des scores, écran de fin).
 
 Trois compagnons jouables, mêmes des deux côtés : **Yeji** (katana, mêlée rapide), **Sweetie** (épée, mêlée lourde), **Jennie** (bouquet, projectile à distance). Le joueur contrôle un héros, deux bots l'accompagnent contre trois bots.
 
@@ -15,7 +15,7 @@ npm test             # tests de la simulation (node --test)
 
 Options d'URL : `?hero=yeji|sweetie|jennie` (héros du joueur) · `?mode=duel` (salle d'entraînement du lot 1, Yeji contre Jennie) · `?bot=off` (adversaires inertes) · `?speed=N` (match accéléré, jusqu'à ×20) · `?seed=N` (tempérament des bots) · `?debug=1` (portées, distances, états) · `?level=N` (donne l'XP du niveau N au joueur, pour tester) · `?spend=1` (avec `level`, dépense aussitôt les points).
 
-Commandes au clavier-souris : clic sol = se déplacer · clic ennemi, sbire, monstre ou tour (ou appui) = verrouiller · `Q` = viser la compétence (clic ou `Q` pour lancer, `Échap` ou clic droit annule) · `R` = ultime · `1` / `2` = +auto / +skill (ou choix de ligne quand l'invite du boss est ouverte) · boutons « + » de la barre de capacités · `S` = stop · `D` = debug · `N` = rejouer · `Échap` = pause.
+Commandes au clavier-souris : clic sol = se déplacer · clic ennemi, sbire, monstre ou tour (ou appui) = verrouiller · `Q` = viser la compétence (clic ou `Q` pour lancer, `Échap` ou clic droit annule) · `R` = ultime · `1` / `2` = +auto / +skill (ou choix de ligne quand l'invite du boss est ouverte) · boutons « + » de la barre de capacités · `B` = rappel · `P` = boutique · `Tab` maintenu = scores (ou toucher le score en haut) · `S` = stop · `D` = debug · `N` = rejouer · `Échap` = ferme un panneau, sinon pause.
 
 ## Interface, mobile et version
 
@@ -96,9 +96,34 @@ En automatique : `npm test` couvre chacun de ces points (verrou, portée, pause,
 
 **Bots.** Dépensent leurs points, lancent skill et ultime selon des règles simples (dash pour rejoindre un héros, éventail à portée, ultime quand des ennemis sont dans la zone, bouclier quand ils sont blessés). Jennie, sans ligne attitrée, fait la jungle quand aucune ligne n'est menacée. Jennie et Sweetie (ligne du bas) prennent le boss en duo quand les deux sont en forme. Un bot blessé et au calme remonte se soigner.
 
+## Règles du lot 4 (cahier §3 et §4)
+
+**Or.** Départ : 300 (couvre n'importe quel starter). L'or vient du **dernier coup** (gnome 20, troll 45, petite unité de camp 35, grande 70, Cerbère 250 ; rien si un sbire ou une tour porte le coup final), des éliminations (200) et des assistances (80). Tout est dans `data/match.json` (`economy`, champ `gold` des unités).
+
+**Douze objets** (`data/items.json`, issu du pack fourni) : trois familles, un starter à 250 et trois gros objets de 850 à 1050 par famille. Trois emplacements, un exemplaire par objet, revente à **70 %** (arrondie vers le bas, affichée avant confirmation).
+
+| Famille | Starter | Gros objets |
+| --- | --- | --- |
+| Physique | **Lame courte** : +8 dégâts bruts aux autos | **Dague d'ouverture** : première auto après 5 s hors combat +24 · **Gants de duel** : chaque 3e auto consécutive sur la même cible +30 · **Marteau de siège** : +25 % d'auto contre les tours |
+| Tank | **Ceinture** : +90 PV max | **Cuirasse** : +18 Défense · **Talisman** : sous 30 % de PV après un coup, bouclier de 100 pendant 3 s, recharge 45 s · **Armure de mêlée** : après des dégâts de deux héros ennemis distincts en 4 s, +20 Défense pendant 4 s, recharge 16 s |
+| Magique | **Grimoire** : +12 sur le premier impact du skill par cible et par lancer | **Catalyseur** : recharge du skill −15 % · **Relique** : +15 % sur la valeur principale de l'ultime (ralentissement, bouclier ou dégâts d'armement) · **Sceau** : le skill qui touche un héros retire 20 % de la recharge restante, une fois par lancer |
+
+Les bonus de recharge ne descendent jamais sous `minSkillCooldownMs` (1000 ms).
+
+**Règles d'achat.** Le **premier starter** s'achète n'importe où (ligne ou jungle) et consomme cette possibilité, même acheté à la base ou revendu ensuite. Tout autre achat, et toute vente : héros vivant dans sa zone de départ (« zone de boutique »). Blocages affichés : « Retour à la base », « Or insuffisant », « Inventaire plein », « Déjà équipé », « Héros éliminé ». Un achat est atomique (or et inventaire changent ensemble) ; un double appui ne débite qu'une fois, et l'interface verrouille le bouton 0,7 s pour qu'un second appui ne revende pas l'objet aussitôt.
+
+**Boutique (interface).** Trois onglets Physique, Tank, Magique ; starters en tête de liste ; fiche avec effet, or disponible, Acheter ou Revendre et aperçu des trois emplacements. Hors base le catalogue reste consultable. Le match **continue** pendant que la boutique ou les scores sont ouverts ; leurs panneaux consomment les appuis ; fermeture d'un geste (✕, fond, `P`, `Échap`). Sons courts à chaque action confirmée ou refusée (réglage dans la pause).
+
+**Rappel.** Danse sur place avec un cercle et une jauge visibles de tous, puis retour à la base, où le héros se soigne. Durée **3,6 s** : celle des animations fournies (le cahier disait 4 s). Interrompu par un déplacement ou le joystick, une attaque lancée (verrouiller un ennemi), une capacité ou un ultime, ou **tout dégât, même absorbé par un bouclier**. Les autos sont suspendues pendant la danse : un verrou resté actif ne l'annule pas par inadvertance. Achats, points de compétence et `S` ne l'interrompent pas.
+
+**Scores.** Maintenir `Tab`, bouton « Scores » ou toucher le score en haut. Deux blocs de trois lignes à l'ordre stable (votre équipe d'abord) : portrait, nom, niveau, éliminations / morts / assistances, trois emplacements d'objets, en-tête avec éliminations et tours détruites. Votre ligne est surlignée, les héros morts grisés avec leur délai. L'écran de fin reprend les six lignes figées.
+
+**Bots.** Ils achètent leur starter à 0:00, puis des gros objets selon leur rôle (Yeji physique, Sweetie tank, Jennie magique), revendent le starter quand l'inventaire est plein, et se **rappellent** pour aller à la boutique ou quand ils sont blessés et loin de la base, s'ils sont à l'abri.
+
 ## Limites connues
 
-- **Pas d'or ni de boutique** (lot 4). L'XP et les niveaux existent.
+- **Économie** : valeurs de départ. En 10 minutes un héros de bot achète en moyenne un starter et un gros objet, parfois deux. Le troisième emplacement se remplit rarement.
+- **Rappel de 3,6 s** et non 4 s (durée des animations) ; les effets d'objets n'ont pas d'icône sur le héros (pas d'indicateur de bouclier de Talisman ou de bonus d'Armure, hors barre de PV).
 - **Sbires** : ils suivent la ligne en ligne droite, sans collision avec les obstacles ni avec les héros, et s'écartent seulement les uns des autres.
 - **Équilibrage** : valeurs de départ (structures : tour extérieure 1300 PV, intérieure 1600, noyau 2000). Deux équipes de bots identiques s'annulent (les vagues se rencontrent au milieu, rien ne bascule) ; la partie se décide dès qu'un humain ou un déséquilibre intervient. Une équipe de trois bots détruit le noyau d'un héros inactif en environ 12 à 18 minutes.
 - **Crédit d'élimination** : seul un héros qui porte le coup final obtient l'élimination ; un coup final de sbire ou de tour donne des assistances mais pas d'élimination.
@@ -130,11 +155,11 @@ En jeu, avec `?level=3&spend=1&bot=off` pour avoir skill et ultime tout de suite
 5. Mourir : compte à rebours au centre de l'écran, réapparition dans la base en PV pleins, compteur de morts incrémenté.
 6. Détruire deux tours d'une même ligne puis le noyau : écran Victoire.
 
-En automatique : `npm test` (101 tests) couvre le tableau de réapparition, la sortie à 0:05, les vagues à 0:30, l'invulnérabilité en cascade, la fin de partie, la priorité des tours, l'assistance, le soin en base et les bots (destruction du noyau d'un héros inactif, repli puis retour en lane). Le lot 3 est couvert par `tests/lot3.test.js` (niveaux et rangs, partage d'XP, dash qui traverse ou qui s'arrête, éventail, bouclier et son expiration à 4 220 ms, zones et ralentissements, camps, laisse, boss à 3:15 / 3:30 / 7:40, duo contre le boss, vague renforcée et choix par défaut) et `tests/animator.test.js` (images, directions, échelles). `tests/ui.test.js` couvre la boutique et le profil, la cohérence des versions et de la carte d'import, le joystick, les boutons d'action et la commande `steer`. `tests/balance.test.js` couvre les recharges, l'XP du temps et des kills, la limite de 10 minutes, les camps symétriques, le souffle du Cerbère et la synchronisation données ↔ animations (impact à la 4e image, durées, fichiers présents).
+En automatique : `npm test` (137 tests) couvre le tableau de réapparition, la sortie à 0:05, les vagues à 0:30, l'invulnérabilité en cascade, la fin de partie, la priorité des tours, l'assistance, le soin en base et les bots (destruction du noyau d'un héros inactif, repli puis retour en lane). Le lot 3 est couvert par `tests/lot3.test.js` (niveaux et rangs, partage d'XP, dash qui traverse ou qui s'arrête, éventail, bouclier et son expiration à 4 220 ms, zones et ralentissements, camps, laisse, boss à 3:15 / 3:30 / 7:40, duo contre le boss, vague renforcée et choix par défaut) et `tests/animator.test.js` (images, directions, échelles). `tests/ui.test.js` couvre la boutique et le profil, la cohérence des versions et de la carte d'import, le joystick, les boutons d'action et la commande `steer`. `tests/lot4.test.js` couvre l'or, les règles d'achat et de vente, les douze effets, le rappel et ses interruptions, les achats des bots et les données du tableau des scores. `tests/balance.test.js` couvre les recharges, l'XP du temps et des kills, la limite de 10 minutes, les camps symétriques, le souffle du Cerbère et la synchronisation données ↔ animations (impact à la 4e image, durées, fichiers présents).
 
 ## Hors périmètre
 
-Boutique, objets, rappel, HUD complet, tableau des scores, commandes tactiles (lot 4) ; salle privée en ligne (lot 5).
+Salle privée en ligne à six places, serveur qui arbitre les actions, les achats, les dégâts, les scores et les minuteurs (lot 5).
 
 ## Question ouverte
 

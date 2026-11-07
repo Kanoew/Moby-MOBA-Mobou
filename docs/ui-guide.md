@@ -13,12 +13,18 @@ Cette base est volontairement **sobre et fonctionnelle**. Elle est prête à rec
 | Pause, fin de partie (verdict + Éclats) | `#pause`, `#endcard` | Fonctionnel |
 | Verrouillage paysage | `#rotate`, `src/main.js` | Overlay en portrait + tentative de verrouillage |
 | Numéro de version | `version.json`, `tools/bump-version.mjs` | Voir plus bas |
+| Inventaire (or + 3 emplacements) | `#inventory`, `src/ui/hud.js` | Fonctionnel, icônes des objets fournies |
+| Boutique à trois onglets | `#shop`, `src/ui/hud.js` | Fonctionnel (achat, revente, libellés de blocage) |
+| Tableau des scores et table de l'écran de fin | `#scores`, `#end-table`, `renderScoreTable` | Fonctionnel, deux blocs de trois lignes |
+| Boutons Scores, Boutique, Rappel | `#hud-buttons` | Fonctionnels, texte seulement |
+| Sons | `src/ui/sound.js` | Bips WebAudio (sans fichier), coupables dans la pause |
 
 ## Ce qui reste (pour un habillage)
 
 - **Images** : fond d'accueil, portraits illustrés, icônes des compétences, icônes de boutons, cadres.
 - **HUD de partie dessiné sur le canvas** (`src/render/renderer.js`, fonctions `drawHud`, `drawAbilityBar`, `drawMinimap`, `drawBonusPrompt`, `drawToasts`) : chrono, éliminations, minimap, barre de PV du joueur. Il est lisible mais plat. Sur mobile, la barre de capacités du canvas est masquée au profit des boutons HTML.
-- **Tableau des scores, boutique d'objets, rappel** : lot 4 du cahier des charges, pas commencés.
+- **Habillage des panneaux du lot 4** : boutique, tableau des scores, inventaire et boutons de partie sont fonctionnels mais sans image (cadres, onglets, fonds, icônes de boutons). Les icônes des objets sont dans `assets/items/<id>.png` (192 × 192).
+- **Retour visuel de certains effets d'objets** : aucun indicateur sur le héros pour le Talisman ou l'Armure de mêlée.
 
 ## Où mettre les images (sans toucher au code)
 
@@ -32,7 +38,7 @@ Cette base est volontairement **sobre et fonctionnelle**. Elle est prête à rec
 
 ## À ne pas casser
 
-- **Identifiants du DOM** utilisés par le script : `#btn-play`, `#btn-characters`, `#btn-shop`, `#btn-pause`, `#btn-resume`, `#btn-quit`, `#btn-again`, `#btn-menu`, `#game`, `#touch`, `#stick-zone`, `#stick-base`, `#stick-knob`, `#btn-attack`, `#btn-skill`, `#btn-ult`, `#plus-attack`, `#plus-skill`, `#rotate`, `#end-title`, `#end-sub`, `#end-reward`, `#home-coins`, `#home-hero`, `#version-label`, `#char-grid`, `#char-detail`, `#shop-grid`, `#shop-note`, `[data-bind="coins"]`, `[data-go]`. On peut changer leur apparence et leur place, pas leur nom.
+- **Identifiants du DOM** utilisés par le script : `#btn-play`, `#btn-characters`, `#btn-shop`, `#btn-pause`, `#btn-resume`, `#btn-quit`, `#btn-again`, `#btn-menu`, `#game`, `#touch`, `#stick-zone`, `#stick-base`, `#stick-knob`, `#btn-attack`, `#btn-skill`, `#btn-ult`, `#plus-attack`, `#plus-skill`, `#rotate`, `#hud-buttons`, `#btn-scores`, `#btn-shop-open`, `#btn-recall`, `#btn-sound`, `#inventory`, `#inv-gold`, `#gold-val`, `#gold-gain`, `#inv-slots`, `#hud-toast`, `#shop`, `#shop-backdrop`, `#shop-tabs` (boutons `data-family`), `#shop-list`, `#shop-detail`, `#shop-action`, `#shop-close`, `#shop-gold`, `#shop-where`, `#scores`, `#scores-backdrop`, `#scores-body`, `#end-table`, `#end-title`, `#end-sub`, `#end-reward`, `#home-coins`, `#home-hero`, `#version-label`, `#char-grid`, `#char-detail`, `#shop-grid`, `#shop-note`, `[data-bind="coins"]`, `[data-go]`. On peut changer leur apparence et leur place, pas leur nom.
 - **Éléments internes des boutons d'action** : `.name`, `.key`, `.cd-num`, `.lock-note`, `.pips i`. Le script y écrit le nom de la capacité, la recharge, le rang.
 - **Le canvas `#game`** doit rester en `position: absolute; inset: 0`. Un canvas flexible dont la taille dépend de son contenu grossit sans fin sur un écran à densité 2 ou 3.
 - **`index.html` entre les marqueurs** `<!--version:start-->…<!--version:end-->` et `<!--entry:start-->…<!--entry:end-->` : généré par `npm run bump`, ne pas éditer à la main.
@@ -54,4 +60,12 @@ Un numéro de version unique vit dans `version.json`. Chaque fichier chargé (mo
 
 ## Vérifier
 
-`npm test` doit rester vert (101 tests). Il couvre le profil et la boutique, la cohérence des versions, la carte d'import, le joystick, les boutons d'action.
+`npm test` doit rester vert (137 tests). Il couvre le profil, la boutique du menu, la cohérence des versions, la carte d'import, le joystick, les boutons d'action, ainsi que l'or, les règles d'achat, les douze objets, le rappel et le tableau des scores.
+
+## Boutique, scores, rappel : points d'attention pour l'habillage
+
+- Les panneaux `#shop` et `#scores` sont des « feuilles » : un fond `.backdrop` qui ferme et consomme l'appui, et un `.panel`. Garder cette structure : c'est elle qui empêche un appui sur un panneau de devenir un ordre de déplacement.
+- Dans la boutique, les lignes ont la classe `.row` avec les états `.selected`, `.owned`, `.starter`, `.poor` ; le bouton d'action `#shop-action` est verrouillé 0,7 s après un clic (anti double appui) : ne pas retirer cet état `disabled`.
+- Le canvas dessine encore, par-dessus, le chrono / éliminations / tours (toucher cette zone ouvre les scores) et la minimap.
+- Les tailles tactiles minimales (≈ 38–44 px) sont respectées ; les conserver en restylant.
+- Le rappel est dessiné dans le canvas (cercle doré + jauge sous les pieds) ; le bouton `#btn-recall` affiche le temps restant.

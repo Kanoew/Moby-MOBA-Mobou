@@ -3,6 +3,7 @@
 // sans couverture de sbires, se replie à bas PV et revient en jeu après la réapparition.
 import { edgeDistance, getUnit, isTargetable, issueCommand, otherTeam, TEAM_ALLY } from './world.js';
 import { canCast } from './abilities.js';
+import { checkBuy, inShopZone, itemDef, sellValue } from './shop.js';
 
 const THINK_MS = 200;
 const RESUME_ABOVE = 0.9;
@@ -221,6 +222,48 @@ function tryAbilities(world, hero, target) {
   return false;
 }
 
+/* ------------------------- boutique et rappel ------------------------- */
+
+// Achats dans l'ordre. Le starter s'achète tout de suite (première fois : n'importe où), les gros objets à la base.
+const BUILD = {
+  yeji: ['lame-courte', 'dague-ouverture', 'gants-duel', 'marteau-siege'],
+  sweetie: ['ceinture', 'cuirasse', 'talisman', 'armure-melee'],
+  jennie: ['grimoire', 'catalyseur', 'relique', 'sceau'],
+};
+
+/** Achète ce qui est possible ; si un passage à la base est utile, lance un rappel. Retourne vrai si un rappel démarre. */
+function shopThink(world, hero) {
+  if (!world.match.items) return false;
+  const want = (BUILD[hero.key] || []).find((id) => !hero.items.includes(id) && !(hero.botSoldStarter && itemDef(world, id).starter));
+  if (!want) return false;
+  const it = itemDef(world, want);
+  const zone = inShopZone(world, hero);
+  const r = checkBuy(world, hero, want);
+  if (r.ok) {
+    issueCommand(world, hero.id, { type: 'buy', itemId: want });
+    return false;
+  }
+  // Inventaire plein : on revend le starter pour acheter le gros objet suivant.
+  const starter = hero.items.map((id) => (id ? itemDef(world, id) : null)).find((x) => x && x.starter);
+  const canAfford = (extra) => hero.gold + extra >= it.priceGold;
+  if (r.reason === 'Inventaire plein' && starter && canAfford(sellValue(world, starter))) {
+    if (zone) {
+      hero.botSoldStarter = true;
+      issueCommand(world, hero.id, { type: 'sell', itemId: starter.id });
+      issueCommand(world, hero.id, { type: 'buy', itemId: want });
+      return false;
+    }
+    return goRecall(world, hero);
+  }
+  if (r.reason === 'Retour à la base' && canAfford(0)) return goRecall(world, hero);
+  return false;
+}
+
+function goRecall(world, hero) {
+  if (hero.retreating || foesWithin(world, hero, 900).length) return false;
+  return issueCommand(world, hero.id, { type: 'recall' });
+}
+
 /* ------------------------- jungle et boss ------------------------- */
 
 function liveMonsters(world, pred) {
@@ -257,7 +300,8 @@ function matchThink(world, hero) {
 
   spendPoints(world, hero);
   chooseBonus(world, hero);
-  if (hero.cast) return;
+  if (hero.cast || hero.recall) return; // lancer ou danse de rappel en cours
+  if (shopThink(world, hero)) return;
 
   // Repli : on rentre se soigner puis on repart à pied.
   if (hero.retreating && ratio >= RESUME_ABOVE && inBase) hero.retreating = false;
@@ -266,6 +310,8 @@ function matchThink(world, hero) {
     if (hero.targetId !== null) issueCommand(world, hero.id, { type: 'clear_target' });
     // Une dernière arme avant de partir : le bouclier se lance aussi en fuite.
     tryAbilities(world, hero, null);
+    // Loin de la base et à l'abri : on se rappelle plutôt que de marcher.
+    if (!inBase && Math.hypot(hero.x - spawn.x, hero.y - spawn.y) > 700 && foesWithin(world, hero, 800).length === 0 && issueCommand(world, hero.id, { type: 'recall' })) return;
     moveTo(world, hero, spawn, 60);
     return;
   }

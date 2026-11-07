@@ -20,6 +20,26 @@ export function canCast(world, hero, slot) {
   return world.time >= hero.cd[slot];
 }
 
+const minSkillCooldown = (world) => (world.match && world.match.items ? world.match.items.rules.minSkillCooldownMs : 0);
+/** Relique : renforce la valeur principale désignée dans les données de l'ultime. */
+const ultMult = (hero, ab, key) => (ab.primary === key && hero.fx ? 1 + hero.fx.ultBonus : 1);
+
+/** Grimoire : bonus au premier impact du skill sur chaque cible, une fois par lancer. */
+export function skillHitBonus(hero, c, targetId) {
+  if (c.slot !== 'skill' || !hero.fx || !hero.fx.grimoire || c.bonusTargets.has(targetId)) return 0;
+  c.bonusTargets.add(targetId);
+  return hero.fx.grimoire;
+}
+
+/** Sceau : un héros ennemi touché par le skill retire une part de la recharge restante, une fois par lancer. */
+export function skillHeroHit(world, hero, c, target) {
+  if (c.slot !== 'skill' || c.sealed || target.kind !== 'hero' || !hero.fx || !hero.fx.seal) return;
+  c.sealed = true;
+  const remaining = hero.cd.skill - world.time;
+  const floor = minSkillCooldown(world);
+  if (remaining > floor) hero.cd.skill = world.time + Math.max(floor, Math.round(remaining * (1 - hero.fx.seal)));
+}
+
 function abilityDamage(ab, rank, atk) {
   return at(ab.damage.base, rank) + ab.damage.coef * atk;
 }
@@ -75,8 +95,11 @@ export function startCast(world, hero, slot, aim) {
   hero.moveTarget = null;
   hero.steer = null;
   hero.path = [];
-  hero.cd[slot] = world.time + at(ab.cooldownMs, rank);
-  hero.cast = { slot, ab, rank, t: 0, dir, start: { x: hero.x, y: hero.y }, distance, fired: false, hit: new Set(), stopped: false };
+  // Catalyseur : recharge du skill réduite, jamais sous le plancher des règles de la boutique.
+  let cd = at(ab.cooldownMs, rank);
+  if (slot === 'skill' && hero.fx && hero.fx.cdReduction) cd = Math.max(minSkillCooldown(world), Math.round(cd * (1 - hero.fx.cdReduction)));
+  hero.cd[slot] = world.time + cd;
+  hero.cast = { slot, ab, rank, t: 0, dir, start: { x: hero.x, y: hero.y }, distance, fired: false, hit: new Set(), stopped: false, bonusTargets: new Set(), sealed: false };
   if (dir) face(hero, hero.x + dir.x, hero.y + dir.y);
   emit(world, { type: 'cast_start', heroId: hero.id, slot, rank });
   return true;
@@ -93,7 +116,8 @@ function segDist(px, py, a, b) {
 function hitUnit(world, hero, c, e) {
   c.hit.add(e.id);
   emit(world, { type: 'ability_hit', heroId: hero.id, targetId: e.id, slot: c.slot });
-  applyDamage(world, hero, e, abilityDamage(c.ab, c.rank, hero.atk));
+  applyDamage(world, hero, e, abilityDamage(c.ab, c.rank, hero.atk) + skillHitBonus(hero, c, e.id));
+  skillHeroHit(world, hero, c, e);
 }
 
 function updateDash(world, hero, c, dt) {
@@ -166,6 +190,7 @@ export function updateCast(world, hero, dt) {
         targetId: null,
         straight: true,
         skill: true,
+        cast: c,
         x: hero.x + c.dir.x * hero.radius,
         y: hero.y + c.dir.y * hero.radius,
         dir: d,
@@ -192,7 +217,7 @@ export function updateCast(world, hero, dt) {
       startAt: world.time,
       armAt: world.time,
       endAt: world.time + ab.durationMs,
-      slow: at(ab.slow, c.rank),
+      slow: Math.min(0.9, at(ab.slow, c.rank) * ultMult(hero, ab, 'slow')),
     });
     emit(world, { type: 'zone_start', heroId: hero.id, kind: 'slow' });
   } else if (ab.kind === 'thorns' && !c.fired && c.t >= ab.spawnMs) {
@@ -210,7 +235,7 @@ export function updateCast(world, hero, dt) {
       startAt: world.time,
       armAt: world.time + ab.armDelayMs,
       endAt: world.time + ab.armDelayMs + ab.sustainMs,
-      burst: abilityDamage({ damage: ab.burst }, c.rank, hero.atk),
+      burst: abilityDamage({ damage: ab.burst }, c.rank, hero.atk) * ultMult(hero, ab, 'burst'),
       burstDone: false,
       tickRaw: abilityDamage({ damage: ab.tick }, c.rank, hero.atk),
       tickEveryMs: ab.tick.everyMs,
@@ -219,7 +244,7 @@ export function updateCast(world, hero, dt) {
     emit(world, { type: 'zone_start', heroId: hero.id, kind: 'thorns' });
   } else if (ab.kind === 'shield' && !c.fired && c.t >= ab.shieldOnMs) {
     c.fired = true;
-    const amount = at(ab.amount, c.rank);
+    const amount = Math.round(at(ab.amount, c.rank) * ultMult(hero, ab, 'amount'));
     hero.shield = { amount, max: amount, since: world.time, until: world.time + ab.durationMs };
     emit(world, { type: 'shield_on', heroId: hero.id, amount });
   }

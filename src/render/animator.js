@@ -42,6 +42,24 @@ export function pickSprite(hero, animClockMs, inCombat = false, extra = {}) {
     return { kind: `cast-${hero.cast.slot}`, sheet: a.sheet, sx: i * cw, sy: 0, sw: cw, sh: ch, anchor: a.anchor, scale, flip, frame: i };
   }
 
+  // Rappel : danse sur place, séquence de poses propre à chaque héros, jouée une fois.
+  if (hero.recall && sp.recall) {
+    const rc = sp.recall;
+    const seq = rc.sequence;
+    let t = Math.min(hero.recall.t, seq.reduce((a, f) => a + f.durationMs, 0) - 1);
+    let k = 0;
+    while (k < seq.length - 1 && t >= seq[k].durationMs) t -= seq[k++].durationMs;
+    const frame = seq[k].frame;
+    const [cw, ch] = rc.cell;
+    const scale = baseScale * rc.scaleRelativeToCompanion;
+    if (rc.directions) {
+      const dir = directionFromFacing(hero.recall.facing);
+      return { kind: 'recall', sheet: rc.sheet, sx: frame * cw, sy: rc.directions[dir] * ch, sw: cw, sh: ch, anchor: rc.anchor, scale, flip: false, frame };
+    }
+    const flip = rc.mirrorLeft && hero.recall.facing.x < 0;
+    return { kind: 'recall', sheet: rc.sheet, sx: frame * cw, sy: 0, sw: cw, sh: ch, anchor: rc.anchor, scale, flip, frame };
+  }
+
   // Maintien de l'ultime (Yeji) : deux poses alternées tant que la zone dure, puis pose de retour.
   const ult = sp.abilities && sp.abilities.ult;
   if (ult && ult.holdFrames && !(hero.moveTarget || hero.steer) && !hero.swing && (extra.ultActive || extra.recovering)) {

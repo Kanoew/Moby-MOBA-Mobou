@@ -7,6 +7,8 @@ import { bindPointer, commandForPoint } from './input/pointer.js';
 import { loadProfile, resetProfile, rewardMatch, saveProfile } from './ui/profile.js';
 import { createUi } from './ui/screens.js';
 import { bindTouchControls, updateTouchHud } from './ui/touch.js';
+import { createHud } from './ui/hud.js';
+import { isMuted, setMuted, unlockAudio } from './ui/sound.js';
 
 const STEP_MS = 16;
 const PLAYER_ID = 'player';
@@ -41,9 +43,10 @@ const getJson = (p) => fetch(`${p}?v=${VERSION}`, { cache: 'no-cache' }).then((r
 
 async function boot() {
   checkVersion();
-  const [arena, map3v3, matchCfg, heroDefs, roster] = await Promise.all(
-    ['data/arena.json', 'data/map-3v3.json', 'data/match.json', 'data/heroes.json', 'data/roster.json'].map(getJson),
+  const [arena, map3v3, matchCfg, heroDefs, roster, itemsCfg] = await Promise.all(
+    ['data/arena.json', 'data/map-3v3.json', 'data/match.json', 'data/heroes.json', 'data/roster.json', 'data/items.json'].map(getJson),
   );
+  matchCfg.items = itemsCfg; // catalogue des douze objets et règles de la boutique
   const images = await loadImages(collectImagePaths(heroDefs, matchCfg));
 
   if (params.get('reset') === '1') resetProfile(localStorage);
@@ -83,6 +86,8 @@ async function boot() {
   let pointer = { x: 0, y: 0 };
   const me = () => (game ? getUnit(game.world, PLAYER_ID) : null);
   const issue = (cmd) => (game ? issueCommand(game.world, PLAYER_ID, cmd) : false);
+  const hud = createHud({ issue, getGame: () => game, localId: PLAYER_ID, heroDefs });
+  window.addEventListener('pointerdown', unlockAudio, { capture: true });
 
   function makeRoster(hero) {
     if (duel) {
@@ -104,6 +109,13 @@ async function boot() {
     const renderer = createRenderer(canvas, world, images, { touch: touchMode });
     renderer.setDebug(game ? game.renderer.isDebug() : debugOn);
     game = { world, renderer, hero, aim: null, paused: false, ended: false };
+    const rendererEvents = world.onEvent;
+    world.onEvent = (ev) => {
+      if (rendererEvents) rendererEvents(ev);
+      hud.onEvent(ev); // sons et messages de la boutique, de l'or et du rappel
+    };
+    hud.reset();
+    $('#screen-game').classList.toggle('no-economy', duel);
     const lvl = Number(params.get('level'));
     if (!duel && lvl >= 2) {
       const p = getUnit(world, PLAYER_ID);
@@ -183,6 +195,7 @@ async function boot() {
   function hudAction(a) {
     if (a.type === 'level_up') issue(a);
     else if (a.type === 'bonus') issue({ type: 'choose_bonus_lane', lane: a.lane });
+    else if (a.type === 'scores') hud.toggleScores();
     else if (a.type === 'cast-slot') {
       if (a.slot === 'ult') cast('ult');
       else if (game.aim) game.aim = null;
@@ -218,8 +231,14 @@ async function boot() {
   window.addEventListener('keydown', (e) => {
     if (!game || ui.screen() !== 'game') return;
     const k = e.key.toLowerCase();
+    if (k === 'tab') {
+      e.preventDefault();
+      if (!e.repeat) hud.showScores(true); // maintenir Tab : tableau des scores
+      return;
+    }
     if (k === 'escape') {
-      if (game.aim) game.aim = null;
+      if (hud.isOverlayOpen()) hud.closeAll();
+      else if (game.aim) game.aim = null;
       else setPaused(!game.paused);
       return;
     }
@@ -233,12 +252,28 @@ async function boot() {
         game.aim = null;
       } else startAim();
     } else if (k === 'r') cast('ult');
+    else if (k === 'b') issue({ type: 'recall' });
+    else if (k === 'p') hud.toggleShop();
     else if (k === '1' || k === '2') {
       const pending = game.world.bonus && game.world.bonus.choices.some((c) => c.chooserId === PLAYER_ID && !c.lane);
       if (pending) issue({ type: 'choose_bonus_lane', lane: k === '1' ? 'top' : 'bottom' });
       else issue({ type: 'level_up', slot: k === '1' ? 'auto' : 'skill' });
     }
   });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'Tab' && game) hud.showScores(false);
+  });
+  $('#btn-shop-open').addEventListener('click', () => game && hud.toggleShop());
+  $('#btn-scores').addEventListener('click', () => game && hud.toggleScores());
+  $('#btn-recall').addEventListener('click', () => issue({ type: 'recall' }));
+  const soundBtn = $('#btn-sound');
+  const syncSound = () => (soundBtn.textContent = `Son : ${isMuted() ? 'coupé' : 'activé'}`);
+  soundBtn.addEventListener('click', () => {
+    setMuted(!isMuted());
+    syncSound();
+  });
+  syncSound();
 
   /* ----- Fin de partie : verdict, éclats gagnés ----- */
   function finish() {
@@ -254,6 +289,9 @@ async function boot() {
     const s = String(Math.floor(w.over.atMs / 1000) % 60).padStart(2, '0');
     $('#end-sub').textContent = `${w.over.reason === 'time' ? 'Temps écoulé' : 'Noyau détruit'} · ${m}:${s} · ${w.stats.ally.kills} / ${w.stats.enemy.kills} éliminations`;
     $('#end-reward').textContent = `+${gain}`;
+    hud.closeAll();
+    if (w.match) hud.renderEnd($('#end-table'));
+    else $('#end-table').replaceChildren();
     $('#endcard').hidden = false;
     ui.renderHome();
   }
@@ -280,6 +318,7 @@ async function boot() {
     if (!aim) game.aim = null;
     game.renderer.draw(dt, PLAYER_ID, aim ? (aim.fromTouch ? aim : { slot: aim.slot, x: pointer.x, y: pointer.y }) : null);
     if (touchMode) updateTouchHud(touchEls, game.world, p);
+    if (game.world.match) hud.update();
     if (game.world.over && !game.ended) finish();
   }
   requestAnimationFrame(frame);

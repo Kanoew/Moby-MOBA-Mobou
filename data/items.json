@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "balanceStatus": "prototype",
+  "rules": {
+    "startingGold": 300,
+    "inventorySlots": 3,
+    "maxCopiesPerItem": 1,
+    "sellPriceRatio": 0.7,
+    "shopZoneRequiredExceptFirstStarter": true,
+    "canSellOnlyAtBaseWhileAlive": true,
+    "minSkillCooldownMs": 1000
+  },
+  "items": [
+    {
+      "id": "lame-courte",
+      "name": "Lame courte",
+      "family": "physique",
+      "starter": true,
+      "priceGold": 250,
+      "description": "+8 dégâts bruts aux attaques de base.",
+      "effect": {
+        "type": "basicAttackBonus",
+        "flatDamage": 8
+      },
+      "icon": "assets/items/lame-courte.png"
+    },
+    {
+      "id": "dague-ouverture",
+      "name": "Dague d’ouverture",
+      "family": "physique",
+      "starter": false,
+      "priceGold": 850,
+      "description": "La première auto après 5 s hors combat inflige +24 dégâts bruts.",
+      "effect": {
+        "type": "openingBasicAttack",
+        "outOfCombatMs": 5000,
+        "flatDamage": 24
+      },
+      "icon": "assets/items/dague-ouverture.png"
+    },
+    {
+      "id": "gants-duel",
+      "name": "Gants de duel",
+      "family": "physique",
+      "starter": false,
+      "priceGold": 950,
+      "description": "Chaque troisième auto consécutive sur la même cible inflige +30 dégâts bruts.",
+      "effect": {
+        "type": "sameTargetBasicAttack",
+        "hitCount": 3,
+        "flatDamage": 30
+      },
+      "icon": "assets/items/gants-duel.png"
+    },
+    {
+      "id": "marteau-siege",
+      "name": "Marteau de siège",
+      "family": "physique",
+      "starter": false,
+      "priceGold": 1000,
+      "description": "+25 % de dégâts d’auto contre les tours.",
+      "effect": {
+        "type": "structureBasicAttackBonus",
+        "targetType": "tower",
+        "bonusRatio": 0.25
+      },
+      "icon": "assets/items/marteau-siege.png"
+    },
+    {
+      "id": "ceinture",
+      "name": "Ceinture",
+      "family": "tank",
+      "starter": true,
+      "priceGold": 250,
+      "description": "+90 PV max.",
+      "effect": {
+        "type": "maxHealthBonus",
+        "flatHealth": 90
+      },
+      "icon": "assets/items/ceinture.png"
+    },
+    {
+      "id": "cuirasse",
+      "name": "Cuirasse",
+      "family": "tank",
+      "starter": false,
+      "priceGold": 850,
+      "description": "+18 Défense.",
+      "effect": {
+        "type": "defenseBonus",
+        "flatDefense": 18
+      },
+      "icon": "assets/items/cuirasse.png"
+    },
+    {
+      "id": "talisman",
+      "name": "Talisman",
+      "family": "tank",
+      "starter": false,
+      "priceGold": 950,
+      "description": "En passant sous 30 % de PV après un coup, gagne un bouclier de 100 PV pendant 3 s. Recharge de 45 s.",
+      "effect": {
+        "type": "lowHealthShield",
+        "thresholdHealthRatio": 0.3,
+        "flatShield": 100,
+        "durationMs": 3000,
+        "cooldownMs": 45000
+      },
+      "icon": "assets/items/talisman.png"
+    },
+    {
+      "id": "armure-melee",
+      "name": "Armure de mêlée",
+      "family": "tank",
+      "starter": false,
+      "priceGold": 1050,
+      "description": "Après des dégâts de deux héros ennemis distincts en 4 s, gagne +20 Défense pendant 4 s. Recharge de 16 s.",
+      "effect": {
+        "type": "multiAttackerDefense",
+        "uniqueEnemyHeroCount": 2,
+        "triggerWindowMs": 4000,
+        "flatDefense": 20,
+        "durationMs": 4000,
+        "cooldownMs": 16000
+      },
+      "icon": "assets/items/armure-melee.png"
+    },
+    {
+      "id": "grimoire",
+      "name": "Grimoire",
+      "family": "magique",
+      "starter": true,
+      "priceGold": 250,
+      "description": "+12 dégâts bruts sur le premier impact du skill offensif pour chaque cible et chaque lancement.",
+      "effect": {
+        "type": "offensiveSkillBonus",
+        "flatDamage": 12,
+        "oncePerTargetPerCast": true
+      },
+      "icon": "assets/items/grimoire.png"
+    },
+    {
+      "id": "catalyseur",
+      "name": "Catalyseur",
+      "family": "magique",
+      "starter": false,
+      "priceGold": 850,
+      "description": "Réduit de 15 % le temps de recharge du skill.",
+      "effect": {
+        "type": "skillCooldownReduction",
+        "reductionRatio": 0.15
+      },
+      "icon": "assets/items/catalyseur.png"
+    },
+    {
+      "id": "relique",
+      "name": "Relique",
+      "family": "magique",
+      "starter": false,
+      "priceGold": 1050,
+      "description": "Renforce de 15 % la valeur principale de l’ultime, par exemple les dégâts, le bouclier ou la force du ralentissement.",
+      "effect": {
+        "type": "ultimatePrimaryValueBonus",
+        "bonusRatio": 0.15
+      },
+      "icon": "assets/items/relique.png"
+    },
+    {
+      "id": "sceau",
+      "name": "Sceau",
+      "family": "magique",
+      "starter": false,
+      "priceGold": 1000,
+      "description": "Quand le skill touche un héros ennemi, retire 20 % de sa recharge restante. Une fois par lancement.",
+      "effect": {
+        "type": "skillHitCooldownRefund",
+        "remainingReductionRatio": 0.2,
+        "oncePerCast": true
+      },
+      "icon": "assets/items/sceau.png"
+    }
+  ]
+}
