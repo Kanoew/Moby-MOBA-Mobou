@@ -61,7 +61,7 @@ Un numéro de version unique vit dans `version.json`. Chaque fichier chargé (mo
 
 ## Vérifier
 
-`npm test` doit rester vert (163 tests). Il couvre le profil, la boutique du menu, la cohérence des versions, la carte d'import, le joystick, les boutons d'action, ainsi que l'or, les règles d'achat, les douze objets, le rappel et le tableau des scores.
+`npm test` doit rester vert (171 tests). Il couvre le profil, la boutique du menu, la cohérence des versions, la carte d'import, le joystick, les boutons d'action, ainsi que l'or, les règles d'achat, les douze objets, le rappel et le tableau des scores.
 
 ## Boutique, scores, rappel : points d'attention pour l'habillage
 
@@ -78,3 +78,5 @@ L'accueil utilise `assets/ui/arena-dusk.svg`, un paysage vectoriel local, et les
 Le terrain Canvas affiche un sol texturé déterministe, des chemins de pierre et des obstacles facettés. Le décor ne modifie pas la simulation ni les collisions. L'échelle du HUD tient compte du ratio de pixels ; mini-carte et barre de vie sont compactées sur mobile, avec le niveau du joueur affiché près des PV. Sur PC, les commandes de ciblage restent au-dessus de l'inventaire. Sur tactile, le menu repliable « Ciblage » se trouve à droite, hors de la zone du joystick. Une action, le joystick ou la pause le referment. Le panneau de vie tactile réserve trois lignes distinctes au nom/niveau, aux PV et à la jauge, indépendamment de la densité de pixels.
 
 Validation : suite Node complète et parcours Chromium aux formats 1440×900, 844×390 et 667×375 (accueil, personnages, boutique, sélection, lancement et boutique en partie). Les contrôles de ciblage ont aussi été exercés sur PC et mobile. Les performances sur téléphones physiques restent à vérifier.
+
+- Gains d'or : le compteur du HUD monte en continu (or du temps) ; l'indicateur `#gold-gain` (« +20 ») ne s'affiche que pour les gains ponctuels (dernier coup, présence, objectif, élimination), jamais pour le revenu du temps (événement `gold` avec `source: 'passive'`). L'événement porte maintenant `source` (`kill`, `lane`, `tower`, `boss`, `passive`) : utile pour de futurs sons ou chiffres flottants.

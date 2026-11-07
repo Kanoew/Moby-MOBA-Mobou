@@ -374,9 +374,9 @@ test('Jennie · Couronne de ronces : posée à 180 ms, dégâts après le délai
 
 /* ------------------------------- jungle & boss ------------------------------- */
 
-test('camps : absents avant 0:30, symétriques, passifs, ripostent, réapparaissent après 60 s', () => {
+test('camps : absents avant 0:15, symétriques, passifs, ripostent, réapparaissent après 60 s', () => {
   const w = duo();
-  run(w, 29900);
+  run(w, 14900);
   assert.equal(w.units.filter((u) => u.kind === 'monster').length, 0);
   run(w, 400);
   const mons = w.units.filter((u) => u.kind === 'monster');

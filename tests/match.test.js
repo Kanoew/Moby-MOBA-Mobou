@@ -51,11 +51,11 @@ test('chrono : sortie fermée à 0:04, ouverte à 0:05', () => {
   assert.ok(Math.hypot(a.x - sp.x, a.y - sp.y) > match.spawnZoneRadius + 20, 'sorti après 0:05');
 });
 
-test('vagues : rien avant 0:30, puis quatre sbires par ligne et par équipe, étalés', () => {
+test('vagues : rien avant 0:15, puis quatre sbires par ligne et par équipe, étalés', () => {
   const w = mk();
-  run(w, 29900);
+  run(w, 14900);
   assert.equal(count(w, 'minion_spawn'), 0);
-  run(w, 200); // t = 30,1 s
+  run(w, 200); // t = 15,1 s
   assert.ok(count(w, 'wave_spawn') === 1);
   run(w, 2000);
   assert.equal(count(w, 'minion_spawn'), 16); // 2 lignes × 2 équipes × 4

@@ -1,7 +1,7 @@
 // Jungle : petits camps symétriques, boss au centre exact, récompense de vague renforcée.
 import { applyDamage, combatTick, edgeDistance, emit, face, getUnit, isTargetable, newUnit, stepToward } from './world.js';
 import { awardXp } from './progression.js';
-import { awardGold } from './shop.js';
+import { awardGold, awardTeamGold } from './shop.js';
 
 const TEAMS = ['ally', 'enemy'];
 
@@ -148,6 +148,7 @@ export function onMonsterKilled(world, source, u) {
     b.announceAt = b.spawnAt - world.match.boss.announceLeadMs;
     emit(world, { type: 'boss_killed', team, killerId: source ? source.id : null });
     if (team) {
+      awardTeamGold(world, team, world.match.economy.bossTeamGold, 'boss');
       b.kills[team]++;
       // Le joueur crédité (dernier coup) choisit la ligne pendant choiceMs ; sinon choix par défaut.
       const ch = { team, chooserId: source.kind === 'hero' ? source.id : null, expiresAt: world.time + world.match.boss.choiceMs, lane: null };

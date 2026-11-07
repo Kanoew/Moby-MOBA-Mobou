@@ -23,7 +23,7 @@
     "dy": 100
   },
   "waves": {
-    "firstMs": 30000,
+    "firstMs": 15000,
     "intervalMs": 25000,
     "staggerMs": 450,
     "composition": [
@@ -332,7 +332,7 @@
   },
   "slowMinSpeed": 0.4,
   "jungle": {
-    "startMs": 30000,
+    "startMs": 15000,
     "respawnMs": 60000,
     "leash": 480,
     "regenPctPerSec": 0.2,
@@ -597,7 +597,15 @@
   "economy": {
     "killGold": 200,
     "assistGold": 80,
-    "shopRadius": 230
+    "shopRadius": 230,
+    "passivePerSec": 2,
+    "laneShareRatio": 0.5,
+    "laneShareRadius": 800,
+    "towerGold": {
+      "outer": 150,
+      "inner": 200
+    },
+    "bossTeamGold": 200
   },
   "attackAssist": {
     "radius": 700,
