@@ -94,6 +94,151 @@
           "back": 3
         },
         "mirrorLeft": false
+      },
+      "abilities": {
+        "skill": {
+          "sheet": "assets/yeji/dash.png",
+          "cell": [
+            640,
+            640
+          ],
+          "anchor": [
+            320,
+            600
+          ],
+          "scaleRelativeToCompanion": 0.653,
+          "directions": {
+            "right": 0,
+            "left": 1,
+            "front": 2,
+            "back": 3
+          },
+          "frameDurationsMs": [
+            80,
+            50,
+            55,
+            65,
+            90,
+            110
+          ]
+        },
+        "ult": {
+          "sheet": "assets/yeji/ult.png",
+          "cell": [
+            640,
+            640
+          ],
+          "anchor": [
+            320,
+            600
+          ],
+          "scaleRelativeToCompanion": 0.653,
+          "directions": {
+            "right": 0,
+            "left": 1,
+            "front": 2,
+            "back": 3
+          },
+          "frameDurationsMs": [
+            80,
+            80,
+            80
+          ],
+          "holdFrames": [
+            3,
+            4
+          ],
+          "holdFrameMs": 200,
+          "recoveryFrame": 5,
+          "recoveryMs": 140
+        },
+        "fx": {
+          "slash": "assets/yeji/fx-slash.png",
+          "zone": "assets/yeji/fx-zone.png",
+          "zoneHalfWidthPx": 266.5,
+          "orbitRear": "assets/yeji/fx-orbit-rear.webp",
+          "orbitFront": "assets/yeji/fx-orbit-front.webp",
+          "orbitCell": [
+            640,
+            384
+          ],
+          "orbitAnchor": [
+            320,
+            192
+          ],
+          "orbitGrid": [
+            6,
+            4
+          ],
+          "orbitFrames": 24,
+          "orbitPeriodMs": 900
+        }
+      }
+    },
+    "abilities": {
+      "skill": {
+        "name": "Coupe éclair",
+        "kind": "dash",
+        "cooldownMs": [
+          8000,
+          7000,
+          6000
+        ],
+        "range": [
+          340,
+          380,
+          420
+        ],
+        "damage": {
+          "base": [
+            20,
+            50,
+            80
+          ],
+          "coef": 0.5
+        },
+        "lockMs": 450,
+        "movementCurve": [
+          [
+            0,
+            0
+          ],
+          [
+            80,
+            0
+          ],
+          [
+            250,
+            1
+          ],
+          [
+            450,
+            1
+          ]
+        ],
+        "strikeMs": 185,
+        "pass": true,
+        "hitRadius": 55,
+        "endsPast": 90
+      },
+      "ult": {
+        "name": "Cercle des lames",
+        "kind": "slow_zone",
+        "cooldownMs": [
+          70000,
+          60000,
+          50000
+        ],
+        "radius": 200,
+        "durationMs": 4000,
+        "slow": [
+          0.3,
+          0.4,
+          0.5
+        ],
+        "lockMs": 240,
+        "zoneStartMs": 160,
+        "followsCaster": true
       }
     }
   },
@@ -204,6 +349,138 @@
             -119
           ]
         }
+      },
+      "abilities": {
+        "skill": {
+          "sheet": "assets/jennie/skill.png",
+          "cell": [
+            320,
+            320
+          ],
+          "anchor": [
+            104,
+            284
+          ],
+          "scaleRelativeToCompanion": 0.89,
+          "mirrorLeft": true,
+          "frameDurationsMs": [
+            70,
+            95,
+            70,
+            55,
+            85,
+            95
+          ]
+        },
+        "ult": {
+          "sheet": "assets/jennie/ult.png",
+          "cell": [
+            320,
+            320
+          ],
+          "anchor": [
+            104,
+            284
+          ],
+          "scaleRelativeToCompanion": 0.89,
+          "mirrorLeft": true,
+          "frameDurationsMs": [
+            80,
+            100,
+            80,
+            125,
+            160,
+            120
+          ]
+        },
+        "fx": {
+          "thornsBehind": "assets/jennie/thorns-behind.png",
+          "thornsFront": "assets/jennie/thorns-front.png",
+          "cell": [
+            480,
+            320
+          ],
+          "pivot": [
+            240,
+            205
+          ],
+          "ringHalfWidthPx": 189,
+          "growthMs": [
+            85,
+            100
+          ],
+          "withdrawalMs": [
+            140,
+            85
+          ]
+        }
+      }
+    },
+    "abilities": {
+      "skill": {
+        "name": "Triple bouquet",
+        "kind": "fan",
+        "cooldownMs": [
+          7000,
+          6000,
+          5000
+        ],
+        "count": 3,
+        "anglesDeg": [
+          -15,
+          0,
+          15
+        ],
+        "range": [
+          600,
+          640,
+          680
+        ],
+        "projectile": {
+          "speed": 1000,
+          "radius": 16
+        },
+        "damage": {
+          "base": [
+            20,
+            30,
+            40
+          ],
+          "coef": 0.4
+        },
+        "lockMs": 470,
+        "fireMs": 235
+      },
+      "ult": {
+        "name": "Couronne de ronces",
+        "kind": "thorns",
+        "cooldownMs": [
+          70000,
+          60000,
+          50000
+        ],
+        "radius": 230,
+        "armDelayMs": 600,
+        "sustainMs": 3000,
+        "burst": {
+          "base": [
+            60,
+            110,
+            160
+          ],
+          "coef": 0.6
+        },
+        "tick": {
+          "base": [
+            10,
+            15,
+            20
+          ],
+          "coef": 0.2,
+          "everyMs": 600
+        },
+        "lockMs": 665,
+        "spawnMs": 180
       }
     }
   },
@@ -298,6 +575,131 @@
         ],
         "scaleRelativeToCompanion": 0.79,
         "mirrorLeft": true
+      },
+      "abilities": {
+        "skill": {
+          "sheet": "assets/sweetie/dash.png",
+          "cell": [
+            384,
+            344
+          ],
+          "anchor": [
+            175,
+            292
+          ],
+          "scaleRelativeToCompanion": 0.815,
+          "mirrorLeft": true,
+          "frameDurationsMs": [
+            45,
+            55,
+            45,
+            60,
+            55,
+            80
+          ]
+        },
+        "ult": {
+          "sheet": "assets/sweetie/shield-cast.png",
+          "cell": [
+            384,
+            344
+          ],
+          "anchor": [
+            175,
+            292
+          ],
+          "scaleRelativeToCompanion": 0.815,
+          "mirrorLeft": true,
+          "frameDurationsMs": [
+            65,
+            85,
+            70,
+            75,
+            70,
+            65
+          ]
+        },
+        "fx": {
+          "shield": "assets/sweetie/shield-fx.png",
+          "shieldPivot": [
+            128,
+            268
+          ],
+          "fadeInMs": 120,
+          "fadeOutMs": 180,
+          "pulsePeriodMs": 1000
+        }
+      }
+    },
+    "abilities": {
+      "skill": {
+        "name": "Ruée",
+        "kind": "dash",
+        "cooldownMs": [
+          9000,
+          8000,
+          7000
+        ],
+        "range": [
+          260,
+          290,
+          320
+        ],
+        "damage": {
+          "base": [
+            42,
+            77,
+            112
+          ],
+          "coef": 0.5
+        },
+        "lockMs": 340,
+        "movementCurve": [
+          [
+            0,
+            0
+          ],
+          [
+            100,
+            0
+          ],
+          [
+            145,
+            0.28
+          ],
+          [
+            205,
+            0.76
+          ],
+          [
+            260,
+            1
+          ],
+          [
+            340,
+            1
+          ]
+        ],
+        "pass": false,
+        "contactSlack": 14,
+        "endsPast": 0
+      },
+      "ult": {
+        "name": "Bouclier",
+        "kind": "shield",
+        "cooldownMs": [
+          60000,
+          50000,
+          40000
+        ],
+        "amount": [
+          150,
+          250,
+          350
+        ],
+        "durationMs": 4000,
+        "lockMs": 430,
+        "shieldOnMs": 220
       }
     }
   }

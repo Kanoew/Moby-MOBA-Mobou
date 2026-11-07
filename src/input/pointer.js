@@ -44,7 +44,7 @@ export function bindPointer(canvas, getWorldPoint, onCommandAt) {
     if (e.button !== undefined && e.button > 0) return;
     e.preventDefault();
     const p = getWorldPoint(e.clientX, e.clientY);
-    onCommandAt(p.x, p.y);
+    onCommandAt(p.x, p.y, e);
   });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 }

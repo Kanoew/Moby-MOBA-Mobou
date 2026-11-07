@@ -1,7 +1,8 @@
 // Bots : n'utilisent que issueCommand, exactement comme le joueur.
 // Duel : approche l'ennemi le plus proche. Match : tient une ligne, suit ses sbires, évite les tours
 // sans couverture de sbires, se replie à bas PV et revient en jeu après la réapparition.
-import { edgeDistance, isTargetable, issueCommand, TEAM_ALLY } from './world.js';
+import { edgeDistance, getUnit, isTargetable, issueCommand, otherTeam, TEAM_ALLY } from './world.js';
+import { canCast } from './abilities.js';
 
 const THINK_MS = 200;
 const RESUME_ABOVE = 0.9;
@@ -89,6 +90,19 @@ function laneMinions(world, hero, lane) {
   return world.units.filter((u) => u.kind === 'minion' && !u.dead && u.team === hero.team && u.lane === lane);
 }
 
+/** Menace sur une ligne : unités ennemies proches de nos structures de cette ligne. */
+function threatScore(world, hero, lane) {
+  let threat = 0;
+  for (const e of world.units) {
+    if (e.dead || e.team === hero.team || e.team === 'neutral' || (e.kind !== 'minion' && e.kind !== 'hero')) continue;
+    if (e.kind === 'minion' && e.lane !== lane) continue;
+    const reach = e.kind === 'hero' ? 900 : 700;
+    const near = world.towers.find((t) => t.team === hero.team && t.lane === lane && !t.dead && Math.hypot(t.x - e.x, t.y - e.y) < reach);
+    if (near) threat += e.kind === 'hero' ? 2 : 1;
+  }
+  return threat;
+}
+
 function chooseLane(world, hero) {
   if (hero.lane) return hero.lane;
   if (hero.flexLane && world.time < hero.flexUntil) return hero.flexLane;
@@ -96,23 +110,10 @@ function chooseLane(world, hero) {
   let best = lanes[0];
   let bestScore = -Infinity;
   for (const lane of lanes) {
-    // Menace : unités ennemies près de nos structures sur cette ligne.
-    let threat = 0;
-    for (const e of world.units) {
-      if (e.dead || e.team === hero.team || (e.kind !== 'minion' && e.kind !== 'hero')) continue;
-      if (e.kind === 'minion' && e.lane !== lane) continue;
-      if (e.kind === 'hero') {
-        const near = world.towers.find((t) => t.team === hero.team && t.lane === lane && !t.dead && Math.hypot(t.x - e.x, t.y - e.y) < 900);
-        if (near) threat += 2;
-      } else {
-        const near = world.towers.find((t) => t.team === hero.team && t.lane === lane && !t.dead && Math.hypot(t.x - e.x, t.y - e.y) < 700);
-        if (near) threat += 1;
-      }
-    }
     // Poussée : on rejoint la ligne où nos sbires sont le plus avancés.
     const ms = laneMinions(world, hero, lane);
     const push = ms.length ? Math.max(...ms.map((m) => progressOf(world, m))) / world.map.width : 0;
-    const score = threat * 10 + push;
+    const score = threatScore(world, hero, lane) * 10 + push;
     if (score > bestScore) {
       best = lane;
       bestScore = score;
@@ -147,7 +148,7 @@ function pickTarget(world, hero) {
   const ratio = hero.hp / hero.maxHp;
   const cands = [];
   for (const e of world.units) {
-    if (!isTargetable(world, hero, e)) continue;
+    if (e.team === 'neutral' || !isTargetable(world, hero, e)) continue;
     const d = edgeDistance(hero, e);
     if (e.kind === 'hero') {
       // On engage un héros si on est en forme, ou s'il est assez faible pour être achevé.
@@ -167,22 +168,114 @@ function pickTarget(world, hero) {
   return same.reduce((a, b) => (b.d < a.d ? b : a)).e;
 }
 
+/* ------------------------- progression et compétences ------------------------- */
+
+function spendPoints(world, hero) {
+  while (hero.points > 0) {
+    // Skill d'abord, puis l'auto au rang 2, puis on termine le skill et l'auto.
+    const order = hero.rank.skill < 1 ? ['skill'] : hero.rank.auto < 2 ? ['auto', 'skill'] : ['skill', 'auto'];
+    if (!order.some((slot) => issueCommand(world, hero.id, { type: 'level_up', slot }))) break;
+  }
+}
+
+function chooseBonus(world, hero) {
+  const ch = world.bonus.choices.find((c) => c.chooserId === hero.id && !c.lane);
+  if (!ch) return;
+  let best = 'top';
+  let bestHp = Infinity;
+  for (const lane of Object.keys(world.map.lanes)) {
+    const hp = world.towers.filter((t) => t.team === otherTeam(hero.team) && t.lane === lane && !t.dead).reduce((a, t) => a + t.hp, 0);
+    if (hp > 0 && hp < bestHp) {
+      best = lane;
+      bestHp = hp;
+    }
+  }
+  issueCommand(world, hero.id, { type: 'choose_bonus_lane', lane: best });
+}
+
+function foesWithin(world, hero, r, kinds = ['hero', 'minion']) {
+  return world.units.filter(
+    (e) => !e.dead && e.team !== hero.team && e.team !== 'neutral' && kinds.includes(e.kind) && Math.hypot(e.x - hero.x, e.y - hero.y) <= r,
+  );
+}
+
+/** Compétences : une décision simple par type de capacité. Retourne vrai si un lancer a démarré. */
+function tryAbilities(world, hero, target) {
+  const ab = hero.def.abilities;
+  if (!ab) return false;
+  const cast = (slot, p) => issueCommand(world, hero.id, { type: slot, x: p ? p.x : undefined, y: p ? p.y : undefined });
+
+  if (canCast(world, hero, 'ult')) {
+    const u = ab.ult;
+    if (u.kind === 'slow_zone' && (foesWithin(world, hero, u.radius, ['hero']).length >= 1 || foesWithin(world, hero, u.radius).length >= 3)) return cast('ult');
+    if (u.kind === 'thorns' && (foesWithin(world, hero, u.radius * 0.9, ['hero']).length >= 1 || foesWithin(world, hero, u.radius).length >= 3)) return cast('ult');
+    if (u.kind === 'shield' && hero.hp / hero.maxHp < 0.7 && foesWithin(world, hero, 520, ['hero']).length >= 1) return cast('ult');
+  }
+  if (canCast(world, hero, 'skill') && target && target.team !== hero.team) {
+    const s = ab.skill;
+    const range = s.range[hero.rank.skill - 1];
+    const d = edgeDistance(hero, target);
+    if (s.kind === 'dash' && target.kind === 'hero' && d > hero.def.auto.range + 40 && d <= range * 0.9) return cast('skill', target);
+    if (s.kind === 'fan' && (target.kind === 'hero' || target.kind === 'monster') && d > 160 && d <= range * 0.85) return cast('skill', target);
+  }
+  return false;
+}
+
+/* ------------------------- jungle et boss ------------------------- */
+
+function liveMonsters(world, pred) {
+  return world.units.filter((u) => u.kind === 'monster' && !u.dead && pred(u));
+}
+
+function objectiveFor(world, hero) {
+  const m = world.match;
+  if (!m.jungle || world.time < m.jungle.startMs || hero.hp / hero.maxHp < 0.6) return null;
+  const anyThreat = Object.keys(world.map.lanes).some((lane) => threatScore(world, hero, lane) > 0);
+  if (anyThreat) return null;
+
+  // Boss : le héros flottant et celui de la ligne du bas, si les deux sont en forme et si le boss est à prendre.
+  const boss = world.boss && world.boss.unitId ? getUnit(world, world.boss.unitId) : null;
+  if (boss && !boss.dead && (hero.lane === null || hero.lane === 'bottom')) {
+    const mates = world.heroes.filter((h) => h.team === hero.team && !h.dead && (h.lane === null || h.lane === 'bottom'));
+    const ready = mates.length >= 2 && mates.every((h) => h.hp / h.maxHp >= 0.6);
+    const rivals = world.heroes.filter((h) => h.team !== hero.team && !h.dead && Math.hypot(h.x - boss.x, h.y - boss.y) < 800).length;
+    if (ready && rivals <= 1) return boss;
+  }
+  // Camps : seulement pour le héros flottant.
+  if (hero.lane === null) {
+    const mons = liveMonsters(world, (u) => u.campId && world.camps.find((c) => c.id === u.campId).side === hero.team);
+    if (mons.length) return mons.reduce((a, b) => (Math.hypot(b.x - hero.x, b.y - hero.y) < Math.hypot(a.x - hero.x, a.y - hero.y) ? b : a));
+  }
+  return null;
+}
+
 function matchThink(world, hero) {
   const spawn = world.map.spawns[hero.team];
   const m = world.match;
   const ratio = hero.hp / hero.maxHp;
   const inBase = Math.hypot(hero.x - spawn.x, hero.y - spawn.y) <= m.spawnZoneRadius;
 
+  spendPoints(world, hero);
+  chooseBonus(world, hero);
+  if (hero.cast) return;
+
   // Repli : on rentre se soigner puis on repart à pied.
   if (hero.retreating && ratio >= RESUME_ABOVE && inBase) hero.retreating = false;
-  else if (!hero.retreating && ratio < hero.bravery) hero.retreating = true;
+  else if (!hero.retreating && (ratio < hero.bravery || (ratio < 0.55 && foesWithin(world, hero, 900).length === 0))) hero.retreating = true; // blessé et au calme : on remonte se soigner
   if (hero.retreating) {
     if (hero.targetId !== null) issueCommand(world, hero.id, { type: 'clear_target' });
+    // Une dernière arme avant de partir : le bouclier se lance aussi en fuite.
+    tryAbilities(world, hero, null);
     moveTo(world, hero, spawn, 60);
     return;
   }
 
-  const target = pickTarget(world, hero);
+  let target = pickTarget(world, hero);
+  const objective = objectiveFor(world, hero);
+  if (objective && !(target && target.kind === 'hero')) target = objective;
+
+  if (tryAbilities(world, hero, target)) return;
+
   if (target) {
     lockTarget(world, hero, target);
     const desired = hero.def.auto.range * 0.88;

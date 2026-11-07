@@ -5,12 +5,16 @@
 //  - duel  (sans `match`) : deux héros, la mort d'un héros termine la partie (lot 1).
 //  - match (avec `match`) : lignes, tours, noyaux, vagues, mort et réapparition (lot 2).
 import { findPath } from './path.js';
+import { initProgression, awardXp, spendPoint } from './progression.js';
+import { startCast, updateCast, updateZones, updateStatuses, effectiveSpeed } from './abilities.js';
+import { initJungle, updateJungle, updateMonster, onMonsterKilled, chooseBonusLane, takeBonusWave } from './jungle.js';
 
 export const TEAM_ALLY = 'ally';
 export const TEAM_ENEMY = 'enemy';
 export const otherTeam = (t) => (t === TEAM_ALLY ? TEAM_ENEMY : TEAM_ALLY);
 
 const STUCK_LIMIT_MS = 250;
+const HIT_KINDS = new Set(['hero', 'minion', 'monster']);
 
 /** Durée totale et instant d'impact d'une attaque (durées d'images, ou valeurs directes pour sbires et tours). */
 export function attackTiming(auto) {
@@ -48,7 +52,7 @@ export function respawnDelayMs(match, timeMs) {
   return Math.round(sec) * 1000;
 }
 
-function newUnit(world, { id, kind, team, def, x, y, radius }) {
+export function newUnit(world, { id, kind, team, def, x, y, radius }) {
   const u = {
     id,
     kind,
@@ -111,6 +115,8 @@ export function createWorld({ map, heroDefs, roster, match = null, seed = 1 }) {
     towers: [],
     cores: [],
     projectiles: [],
+    zones: [],
+    nextZoneId: 1,
     events: [],
     over: null,
     nextId: 1,
@@ -142,6 +148,7 @@ export function createWorld({ map, heroDefs, roster, match = null, seed = 1 }) {
       bravery: 0.2 + world.rng() * 0.2,
       aggression: 0.8 + world.rng() * 0.6,
     });
+    initProgression(h, match);
     world.heroes.push(h);
   }
 
@@ -162,6 +169,7 @@ export function createWorld({ map, heroDefs, roster, match = null, seed = 1 }) {
       const core = newUnit(world, { id: `core-${team}`, kind: 'core', team, def: cdef, x: mx(c.x), y: c.y, radius: cdef.radius });
       world.cores.push(core);
     }
+    initJungle(world);
   }
   return world;
 }
@@ -202,20 +210,20 @@ export function edgeDistance(a, b) {
   return Math.hypot(b.x - a.x, b.y - a.y) - a.radius - b.radius;
 }
 
-function emit(world, ev) {
+export function emit(world, ev) {
   ev.t = world.time;
   world.events.push(ev);
   if (world.onEvent) world.onEvent(ev);
 }
 
-function face(u, tx, ty) {
+export function face(u, tx, ty) {
   const dx = tx - u.x;
   const dy = ty - u.y;
   const len = Math.hypot(dx, dy);
   if (len > 0.001) u.facing = { x: dx / len, y: dy / len };
 }
 
-function cancelSwing(world, u, reason) {
+export function cancelSwing(world, u, reason) {
   if (!u.swing) return;
   // Annuler avant l'impact ne consomme pas la cadence.
   if (!u.swing.hitDone) u.nextAttackAt = u.swing.prevNextAttackAt;
@@ -230,8 +238,16 @@ function cancelSwing(world, u, reason) {
 export function issueCommand(world, heroId, cmd) {
   const hero = getUnit(world, heroId);
   if (!hero || hero.kind !== 'hero' || hero.dead || world.over) return false;
+  if (hero.cast && cmd.type === 'move') return false; // un lancer en cours ne s'interrompt pas
 
   switch (cmd.type) {
+    case 'skill':
+    case 'ult':
+      return startCast(world, hero, cmd.type, cmd.x !== undefined ? { x: cmd.x, y: cmd.y } : null);
+    case 'level_up':
+      return spendPoint(world, heroId, cmd.slot);
+    case 'choose_bonus_lane':
+      return chooseBonusLane(world, heroId, cmd.lane);
     case 'move': {
       const x = Math.min(world.map.width - hero.radius, Math.max(hero.radius, cmd.x));
       const y = Math.min(world.map.height - hero.radius, Math.max(hero.radius, cmd.y));
@@ -271,7 +287,10 @@ export function step(world, dtMs) {
   world.events.length = 0;
   world.time += dtMs;
 
-  if (world.match) updateWaves(world);
+  if (world.match) {
+    updateWaves(world);
+    updateJungle(world);
+  }
 
   for (const u of world.units.slice()) {
     if (world.over) break;
@@ -279,13 +298,16 @@ export function step(world, dtMs) {
     else if (u.dead) continue;
     else if (u.kind === 'minion') updateMinion(world, u, dtMs);
     else if (u.kind === 'tower') updateTower(world, u, dtMs);
+    else if (u.kind === 'monster') updateMonster(world, u, dtMs);
   }
   updateProjectiles(world, dtMs);
+  updateZones(world, dtMs);
+  updateStatuses(world);
   separateHeroes(world);
   separateMinions(world);
   if (world.match) updateBases(world, dtMs);
-  if (world.units.some((u) => u.kind === 'minion' && u.dead)) {
-    world.units = world.units.filter((u) => !(u.kind === 'minion' && u.dead));
+  if (world.units.some((u) => (u.kind === 'minion' || u.kind === 'monster') && u.dead)) {
+    world.units = world.units.filter((u) => !((u.kind === 'minion' || u.kind === 'monster') && u.dead));
   }
 }
 
@@ -306,6 +328,12 @@ function updateHero(world, hero, dtMs) {
     }
   }
 
+  // Un lancer de compétence occupe le héros jusqu'à la fin de son animation.
+  if (hero.cast) {
+    updateCast(world, hero, dtMs);
+    return;
+  }
+
   // Le déplacement suspend les autos. Le héros ne poursuit jamais la cible.
   if (hero.moveTarget) {
     moveHero(world, hero, dtMs);
@@ -318,7 +346,7 @@ function updateHero(world, hero, dtMs) {
 }
 
 /** Démarre un coup si possible (à portée, cadence prête), puis fait avancer le coup en cours. */
-function combatTick(world, u, target, dtMs) {
+export function combatTick(world, u, target, dtMs) {
   const auto = u.def.auto;
   if (!u.swing && edgeDistance(u, target) <= auto.range && world.time >= u.nextAttackAt) {
     face(u, target.x, target.y);
@@ -343,7 +371,7 @@ function resolveImpact(world, u, target) {
     // L'impact rate si la cible est sortie de la zone entre le départ et le contact.
     if (edgeDistance(u, target) <= auto.range + (auto.hitSlack || 0)) {
       emit(world, { type: 'hit', heroId: u.id, targetId: target.id });
-      applyDamage(world, u, target, u.atk);
+      applyDamage(world, u, target, u.atk * (u.autoMult || 1));
     } else {
       emit(world, { type: 'whiff', heroId: u.id, targetId: target.id });
     }
@@ -361,7 +389,7 @@ function resolveImpact(world, u, target) {
       dir: { x: u.facing.x, y: u.facing.y },
       speed: p.speed,
       radius: p.radius,
-      damage: u.atk,
+      damage: u.atk * (u.autoMult || 1),
       lifeMs: p.maxLifeMs,
     });
     emit(world, { type: 'spawn_projectile', heroId: u.id, targetId: target.id });
@@ -370,8 +398,32 @@ function resolveImpact(world, u, target) {
 
 function updateProjectiles(world, dtMs) {
   for (const p of world.projectiles) {
-    const target = getUnit(world, p.targetId);
     p.lifeMs -= dtMs;
+    const move = (p.speed * dtMs) / 1000;
+    if (p.straight) {
+      // Projectile de compétence : ligne droite, touche le premier ennemi rencontré, portée limitée.
+      const owner = getUnit(world, p.ownerId);
+      let hit = null;
+      for (const e of world.units) {
+        if (e.dead || e.team === p.team || !HIT_KINDS.has(e.kind) || !isVisibleTo(e, p.team)) continue;
+        if (Math.hypot(e.x - p.x, e.y - p.y) <= e.radius + p.radius) {
+          hit = e;
+          break;
+        }
+      }
+      if (hit) {
+        p.done = true;
+        emit(world, { type: 'hit', heroId: p.ownerId, targetId: hit.id, projectileId: p.id, skill: true });
+        applyDamage(world, owner, hit, p.damage);
+      } else {
+        p.x += p.dir.x * move;
+        p.y += p.dir.y * move;
+        p.rangeLeft -= move;
+        if (p.rangeLeft <= 0 || p.lifeMs <= 0) p.done = true;
+      }
+      continue;
+    }
+    const target = getUnit(world, p.targetId);
     if (!target || target.dead || !isVisibleTo(target, p.team) || p.lifeMs <= 0) {
       p.done = true;
       continue;
@@ -380,7 +432,6 @@ function updateProjectiles(world, dtMs) {
     const dy = target.y - p.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 0.001) p.dir = { x: dx / dist, y: dy / dist };
-    const move = (p.speed * dtMs) / 1000;
     if (dist - move <= target.radius + p.radius) {
       p.done = true;
       const owner = getUnit(world, p.ownerId);
@@ -396,9 +447,21 @@ function updateProjectiles(world, dtMs) {
 
 export function applyDamage(world, source, target, raw) {
   if (target.dead || world.over) return 0;
-  const amount = mitigate(raw, target.def_);
+  let amount = mitigate(raw, target.def_);
+  // Le bouclier absorbe après la Défense et avant les PV.
+  let absorbed = 0;
+  if (target.shield) {
+    absorbed = Math.min(target.shield.amount, amount);
+    target.shield.amount -= absorbed;
+    amount -= absorbed;
+    if (target.shield.amount <= 0) {
+      target.shield = null;
+      emit(world, { type: 'shield_off', heroId: target.id, broken: true });
+    }
+  }
   target.hp = Math.max(0, target.hp - amount);
-  emit(world, { type: 'damage', sourceId: source ? source.id : null, targetId: target.id, amount, hp: target.hp });
+  emit(world, { type: 'damage', sourceId: source ? source.id : null, targetId: target.id, amount, absorbed, hp: target.hp });
+  if (target.kind === 'monster' && source && source.team !== 'neutral') target.aggroId = source.id;
 
   if (source && source.kind === 'hero' && target.kind === 'hero') {
     target.damagers[source.id] = world.time;
@@ -421,6 +484,9 @@ function kill(world, source, target) {
   target.moveTarget = null;
   target.path = [];
   target.targetId = null;
+  target.shield = null;
+  target.cast = null;
+  target.dashing = false;
 
   if (target.kind === 'hero') {
     const killer = source && source.kind === 'hero' ? source : null;
@@ -434,6 +500,10 @@ function kill(world, source, target) {
       if ((!killer || id !== killer.id) && world.time - t <= win) getUnit(world, id).assists++;
     }
     target.damagers = {};
+    if (world.match) {
+      const kx = world.match.progression.heroKillXp;
+      awardXp(world, otherTeam(target.team), target.x, target.y, kx.base + kx.perLevel * target.level);
+    }
     emit(world, { type: 'death', heroId: target.id, killerId: source ? source.id : null });
     if (world.match) {
       target.respawnAt = world.time + respawnDelayMs(world.match, world.time);
@@ -449,7 +519,11 @@ function kill(world, source, target) {
     world.over = { winnerTeam: otherTeam(target.team), atMs: world.time, reason: 'core' };
     emit(world, { type: 'core_destroyed', team: target.team });
     emit(world, { type: 'match_over', winnerTeam: world.over.winnerTeam });
+  } else if (target.kind === 'monster') {
+    emit(world, { type: 'monster_died', unitId: target.id, boss: !!target.boss });
+    onMonsterKilled(world, source, target);
   } else {
+    if (world.match) awardXp(world, otherTeam(target.team), target.x, target.y, target.def.xp);
     emit(world, { type: 'minion_died', unitId: target.id });
   }
 }
@@ -462,6 +536,9 @@ function respawnHero(world, hero) {
   hero.dead = false;
   hero.respawnAt = null;
   hero.swing = null;
+  hero.cast = null;
+  hero.slow = null;
+  hero.shield = null;
   hero.nextAttackAt = world.time;
   emit(world, { type: 'respawn', heroId: hero.id });
 }
@@ -480,7 +557,8 @@ function updateWaves(world) {
   if (world.time >= world.nextWaveAt) {
     for (const lane of Object.keys(world.map.lanes)) {
       for (const team of [TEAM_ALLY, TEAM_ENEMY]) {
-        m.waves.composition.forEach((type, i) => {
+        const comp = m.waves.composition.concat(takeBonusWave(world, team, lane));
+        comp.forEach((type, i) => {
           world.pendingSpawns.push({ at: world.time + i * m.waves.staggerMs, team, lane, type });
         });
       }
@@ -512,7 +590,7 @@ function acquire(world, u, aggro) {
   let bestTier = 9;
   let bestD = Infinity;
   for (const e of world.units) {
-    if (!isTargetable(world, u, e)) continue;
+    if (e.team === 'neutral' || !isTargetable(world, u, e)) continue;
     const tier = e.kind === 'minion' ? 0 : e.kind === 'hero' ? 1 : 2;
     const d = edgeDistance(u, e);
     if (d > aggro) continue;
@@ -525,12 +603,12 @@ function acquire(world, u, aggro) {
   return best;
 }
 
-function stepToward(u, x, y, dtMs) {
+export function stepToward(world, u, x, y, dtMs, mult = 1) {
   const dx = x - u.x;
   const dy = y - u.y;
   const d = Math.hypot(dx, dy);
   if (d < 0.001) return;
-  const s = Math.min(d, (u.speed * dtMs) / 1000);
+  const s = Math.min(d, (effectiveSpeed(world, u) * mult * dtMs) / 1000);
   u.x += (dx / d) * s;
   u.y += (dy / d) * s;
   face(u, x, y);
@@ -555,7 +633,7 @@ function updateMinion(world, u, dtMs) {
 
   if (t) {
     if (u.swing || edgeDistance(u, t) <= u.def.auto.range) combatTick(world, u, t, dtMs);
-    else stepToward(u, t.x, t.y, dtMs);
+    else stepToward(world, u, t.x, t.y, dtMs);
     return;
   }
   const wp = u.path[u.wp];
@@ -563,7 +641,7 @@ function updateMinion(world, u, dtMs) {
     if (u.wp < u.path.length - 1) u.wp++;
     return;
   }
-  stepToward(u, wp.x, wp.y, dtMs);
+  stepToward(world, u, wp.x, wp.y, dtMs);
 }
 
 function updateTower(world, tw, dtMs) {
@@ -631,7 +709,7 @@ function moveHero(world, hero, dtMs) {
   const dx = wp.x - hero.x;
   const dy = wp.y - hero.y;
   const dist = Math.hypot(dx, dy);
-  const stepLen = (hero.speed * dtMs) / 1000;
+  const stepLen = (effectiveSpeed(world, hero) * dtMs) / 1000;
   face(hero, wp.x, wp.y);
 
   if (dist <= stepLen) {
@@ -708,7 +786,7 @@ export function pushOutOfObstacles(world, hero) {
 }
 
 function separateHeroes(world) {
-  const hs = world.heroes.filter((h) => !h.dead);
+  const hs = world.heroes.filter((h) => !h.dead && !h.dashing);
   for (let i = 0; i < hs.length; i++) {
     for (let j = i + 1; j < hs.length; j++) {
       const a = hs[i];

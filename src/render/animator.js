@@ -20,12 +20,36 @@ export function directionFromFacing(f) {
  * Retourne {kind, sheet, sx, sy, sw, sh, anchor, scale, flip} pour un héros.
  * animClockMs : temps écoulé dans l'état courant (boucle pour idle/course).
  * inCombat : cible verrouillée et à portée (déclenche la garde entre deux coups).
+ * extra : { ultActive, recovering } pour la pose de maintien de l'ultime de Yeji.
  */
-export function pickSprite(hero, animClockMs, inCombat = false) {
+export function pickSprite(hero, animClockMs, inCombat = false, extra = {}) {
   const sp = hero.def.sprites;
   const comp = sp.companion;
   const atk = sp.attack;
   const baseScale = sp.scale;
+
+  // Lancer de compétence ou d'ultime : planche dédiée, jouée une fois.
+  if (hero.cast && sp.abilities && sp.abilities[hero.cast.slot]) {
+    const a = sp.abilities[hero.cast.slot];
+    const i = frameAt(a.frameDurationsMs, hero.cast.t, false);
+    const [cw, ch] = a.cell;
+    const scale = baseScale * a.scaleRelativeToCompanion;
+    if (a.directions) {
+      const dir = directionFromFacing(hero.facing);
+      return { kind: `cast-${hero.cast.slot}`, sheet: a.sheet, sx: i * cw, sy: a.directions[dir] * ch, sw: cw, sh: ch, anchor: a.anchor, scale, flip: false, frame: i };
+    }
+    const flip = a.mirrorLeft && hero.facing.x < 0;
+    return { kind: `cast-${hero.cast.slot}`, sheet: a.sheet, sx: i * cw, sy: 0, sw: cw, sh: ch, anchor: a.anchor, scale, flip, frame: i };
+  }
+
+  // Maintien de l'ultime (Yeji) : deux poses alternées tant que la zone dure, puis pose de retour.
+  const ult = sp.abilities && sp.abilities.ult;
+  if (ult && ult.holdFrames && !hero.moveTarget && !hero.swing && (extra.ultActive || extra.recovering)) {
+    const [cw, ch] = ult.cell;
+    const dir = directionFromFacing(hero.facing);
+    const frame = extra.ultActive ? ult.holdFrames[Math.floor(animClockMs / ult.holdFrameMs) % ult.holdFrames.length] : ult.recoveryFrame;
+    return { kind: extra.ultActive ? 'ult-hold' : 'ult-recover', sheet: ult.sheet, sx: frame * cw, sy: ult.directions[dir] * ch, sw: cw, sh: ch, anchor: ult.anchor, scale: baseScale * ult.scaleRelativeToCompanion, flip: false, frame };
+  }
 
   // Attaque en cours : planche d'attaque, jouée une seule fois.
   if (hero.swing) {

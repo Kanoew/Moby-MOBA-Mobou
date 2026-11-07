@@ -2,6 +2,8 @@
 // Les sbires, tours et noyaux sont dessinés de façon procédurale (aucun sprite fourni pour l'instant).
 import { edgeDistance, getUnit, isVulnerable } from '../sim/world.js';
 import { pickSprite } from './animator.js';
+import { cooldownLeft } from '../sim/abilities.js';
+import { xpToNext } from '../sim/progression.js';
 
 const COLORS = {
   ally: '#34d3e8',
@@ -40,6 +42,11 @@ export function collectImagePaths(heroDefs) {
   for (const d of Object.values(heroDefs)) {
     paths.push(d.sprites.companion.sheet, d.sprites.attack.sheet);
     if (d.sprites.attack.projectile) paths.push(d.sprites.attack.projectile.texture);
+    for (const a of Object.values(d.sprites.abilities || {})) {
+      if (a.sheet) paths.push(a.sheet);
+      // Textures d'effets : toute valeur de chemin dans le bloc fx.
+      for (const v of Object.values(a)) if (typeof v === 'string' && v.startsWith('assets/')) paths.push(v);
+    }
   }
   return paths;
 }
@@ -58,12 +65,29 @@ export function createRenderer(canvas, world, images) {
   let lastView = { scale: 1, ox: 0, oy: 0, dpr: 1 };
   const matchMode = !!world.match;
 
+  const toasts = [];
+  let hudHits = [];
+  const toast = (text, ms = 3500) => toasts.push({ text, until: performance.now() + ms });
+  const heroName = (id) => (getUnit(world, id) ? getUnit(world, id).def.name : '?');
+
   world.onEvent = (ev) => {
     if (ev.type === 'damage') {
       const t = getUnit(world, ev.targetId);
-      if (t && t.kind !== 'minion') floaters.push({ x: t.x, y: t.y - (t.kind === 'hero' ? 130 : 90), text: String(ev.amount), age: 0 });
-    }
+      if (t && t.kind !== 'minion') {
+        const text = ev.amount > 0 ? String(ev.amount) : ev.absorbed > 0 ? `🛡 ${ev.absorbed}` : '0';
+        floaters.push({ x: t.x, y: t.y - (t.kind === 'hero' ? 130 : t.kind === 'monster' ? 110 : 90), text, age: 0 });
+      }
+    } else if (ev.type === 'boss_announce') toast(`Le boss apparaît dans ${Math.round(ev.spawnInMs / 1000)} s`, 6000);
+    else if (ev.type === 'boss_spawn') toast('Le boss est apparu au centre', 4500);
+    else if (ev.type === 'boss_killed') toast(ev.team ? `Boss vaincu par ${ev.team === localTeamOf() ? 'votre équipe' : "l'équipe adverse"}` : 'Boss vaincu', 4500);
+    else if (ev.type === 'bonus_lane') toast(`Vague renforcée : ligne ${ev.lane === 'top' ? 'du haut' : 'du bas'}${ev.byDefault ? ' (choix par défaut)' : ''}`, 4500);
+    else if (ev.type === 'tower_destroyed') toast(`Tour ${ev.tier === 'outer' ? 'extérieure' : 'intérieure'} détruite (${ev.team === localTeamOf() ? 'alliée' : 'adverse'})`, 3500);
+    else if (ev.type === 'level_up' && ev.heroId === localIdOf()) toast(`Niveau ${ev.level}`, 3000);
+    else if (ev.type === 'death' && ev.heroId === localIdOf()) toast(`Éliminé${ev.killerId ? ' par ' + heroName(ev.killerId) : ''}`, 3500);
   };
+  let localId_ = null;
+  const localIdOf = () => localId_;
+  const localTeamOf = () => (getUnit(world, localId_) ? getUnit(world, localId_).team : 'ally');
 
   function view(localId) {
     const dpr = window.devicePixelRatio || 1;
@@ -227,6 +251,69 @@ export function createRenderer(canvas, world, images) {
     ctx.fill();
   }
 
+  const ultState = new Map(); // héros → { wasActive, endedAt } pour la pose de retour de l'ultime de Yeji
+
+  function ultFlags(hero) {
+    const abil = hero.def.sprites.abilities;
+    if (!abil || !abil.ult || !abil.ult.holdFrames) return {};
+    const active = world.zones.some((z) => z.ownerId === hero.id && z.kind === 'slow');
+    const st = ultState.get(hero) || { wasActive: false, endedAt: -1e9 };
+    if (st.wasActive && !active) st.endedAt = world.time;
+    st.wasActive = active;
+    ultState.set(hero, st);
+    return { ultActive: active, recovering: !active && world.time - st.endedAt < abil.ult.recoveryMs };
+  }
+
+  function drawOrbit(hero, layer) {
+    const fx = hero.def.sprites.abilities && hero.def.sprites.abilities.fx;
+    const z = fx && fx.orbitRear ? world.zones.find((q) => q.ownerId === hero.id && q.kind === 'slow') : null;
+    if (!z) return;
+    const k = z.radius / fx.zoneHalfWidthPx;
+    const e = world.time - z.startAt;
+    const i = Math.floor(((e % fx.orbitPeriodMs) / fx.orbitPeriodMs) * fx.orbitFrames);
+    const [cw, ch] = fx.orbitCell;
+    const cols = fx.orbitGrid[0];
+    const img = images[layer === 'rear' ? fx.orbitRear : fx.orbitFront];
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, e / 200, (z.endAt - world.time) / 300);
+    ctx.drawImage(img, (i % cols) * cw, Math.floor(i / cols) * ch, cw, ch, hero.x - fx.orbitAnchor[0] * k, hero.y - fx.orbitAnchor[1] * k, cw * k, ch * k);
+    ctx.restore();
+  }
+
+  function drawShieldFx(hero) {
+    const abil = hero.def.sprites.abilities;
+    const fx = abil && abil.fx;
+    if (!hero.shield || !fx || !fx.shield) return;
+    const img = images[fx.shield];
+    const s = hero.def.sprites.scale * abil.ult.scaleRelativeToCompanion;
+    const t = world.time - hero.shield.since;
+    const left = hero.shield.until - world.time;
+    const pulse = 1 + 0.05 * Math.sin((t / fx.pulsePeriodMs) * Math.PI * 2);
+    ctx.save();
+    ctx.globalAlpha = 0.9 * Math.max(0, Math.min(1, t / fx.fadeInMs, left / fx.fadeOutMs));
+    const w = img.width * s * pulse;
+    const h = img.height * s * pulse;
+    ctx.drawImage(img, hero.x - fx.shieldPivot[0] * s * pulse, hero.y - fx.shieldPivot[1] * s * pulse, w, h);
+    ctx.restore();
+  }
+
+  function drawSlashFx(hero) {
+    const abil = hero.def.sprites.abilities;
+    const fx = abil && abil.fx;
+    const c = hero.cast;
+    if (!c || c.slot !== 'skill' || !fx || !fx.slash || c.ab.kind !== 'dash' || !c.ab.pass) return;
+    const e = c.t - c.ab.strikeMs;
+    if (e < 0 || e > 170) return;
+    const img = images[fx.slash];
+    const s = 0.55;
+    ctx.save();
+    ctx.globalAlpha = 1 - e / 170;
+    ctx.translate(hero.x + c.dir.x * 60, hero.y - 70 + c.dir.y * 30);
+    ctx.rotate(Math.atan2(c.dir.y, c.dir.x));
+    ctx.drawImage(img, (-img.width * s) / 2, (-img.height * s) / 2, img.width * s, img.height * s);
+    ctx.restore();
+  }
+
   function drawHero(hero, localTeam) {
     if (hero.dead) return;
     ctx.save();
@@ -238,14 +325,22 @@ export function createRenderer(canvas, world, images) {
     ctx.strokeStyle = teamColor(hero.team, localTeam);
     ctx.lineWidth = 4;
     ctx.stroke();
+    ctx.restore();
+
     const combat = inCombat(hero);
-    const probe = pickSprite(hero, 0, combat);
+    const extra = ultFlags(hero);
+    drawOrbit(hero, 'rear');
+    const probe = pickSprite(hero, 0, combat, extra);
     const clock = animClock(hero, probe.kind);
-    const s = pickSprite(hero, clock, combat);
+    const s = pickSprite(hero, clock, combat, extra);
+    ctx.save();
     ctx.translate(hero.x, hero.y);
     if (s.flip) ctx.scale(-1, 1);
     ctx.drawImage(images[s.sheet], s.sx, s.sy, s.sw, s.sh, -s.anchor[0] * s.scale, -s.anchor[1] * s.scale, s.sw * s.scale, s.sh * s.scale);
     ctx.restore();
+    drawOrbit(hero, 'front');
+    drawShieldFx(hero);
+    drawSlashFx(hero);
   }
 
   function drawMinion(u, localTeam) {
@@ -320,6 +415,161 @@ export function createRenderer(canvas, world, images) {
     ctx.restore();
   }
 
+  function drawMonster(u) {
+    const r = u.radius;
+    const boss = !!u.boss;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(u.x, u.y + 4, r * 1.05, r * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const cy = u.y - r * 0.9;
+    ctx.fillStyle = boss ? '#2c1740' : '#2a2238';
+    ctx.strokeStyle = boss ? '#ffb347' : '#c78bff';
+    ctx.lineWidth = boss ? 6 : 4;
+    ctx.beginPath();
+    ctx.ellipse(u.x, cy, r, r * 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Piques : trois sur un petit monstre, cinq sur le boss.
+    const n = boss ? 5 : 3;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI * 0.5 + ((i - (n - 1) / 2) * Math.PI * 0.45) / (n > 3 ? 1.2 : 1);
+      ctx.moveTo(u.x + Math.cos(a - 0.18) * r, cy + Math.sin(a - 0.18) * r * 1.1);
+      ctx.lineTo(u.x + Math.cos(a) * r * 1.5, cy + Math.sin(a) * r * 1.6);
+      ctx.lineTo(u.x + Math.cos(a + 0.18) * r, cy + Math.sin(a + 0.18) * r * 1.1);
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = boss ? '#ffb347' : '#e6c8ff';
+    for (const dx of [-0.35, 0.35]) {
+      ctx.beginPath();
+      ctx.arc(u.x + dx * r, cy - r * 0.1, r * 0.13, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function zoneImageBack(z) {
+    const owner = getUnit(world, z.ownerId);
+    const fx = owner && owner.def.sprites.abilities && owner.def.sprites.abilities.fx;
+    if (!fx) return;
+    const e = world.time - z.startAt;
+    const left = z.endAt - world.time;
+    ctx.save();
+    if (z.kind === 'slow' && fx.zone) {
+      const k = z.radius / fx.zoneHalfWidthPx;
+      const img = images[fx.zone];
+      ctx.globalAlpha = 0.9 * Math.min(1, e / 250, left / 350);
+      ctx.drawImage(img, z.x - 320 * k, z.y - 192 * k, 640 * k, 384 * k);
+    } else if (z.kind === 'thorns' && fx.thornsBehind) {
+      drawThorns(z, fx, images[fx.thornsBehind]);
+    }
+    ctx.restore();
+  }
+
+  function drawThorns(z, fx, img) {
+    const e = world.time - z.startAt;
+    const total = z.endAt - z.startAt;
+    const [g0, g1] = fx.growthMs;
+    const [w0, w1] = fx.withdrawalMs;
+    let frame;
+    if (e < g0) frame = 0;
+    else if (e < g0 + g1) frame = 1;
+    else if (e < total - (w0 + w1)) frame = 2;
+    else if (e < total - w1) frame = 3;
+    else frame = 0;
+    const k = z.radius / fx.ringHalfWidthPx;
+    const [cw, ch] = fx.cell;
+    ctx.globalAlpha = world.time < z.armAt ? 0.65 : 1;
+    ctx.drawImage(img, frame * cw, 0, cw, ch, z.x - fx.pivot[0] * k, z.y - fx.pivot[1] * k, cw * k, ch * k);
+  }
+
+  function zoneImageFront(z) {
+    if (z.kind !== 'thorns') return;
+    const owner = getUnit(world, z.ownerId);
+    const fx = owner && owner.def.sprites.abilities && owner.def.sprites.abilities.fx;
+    if (!fx || !fx.thornsFront) return;
+    ctx.save();
+    drawThorns(z, fx, images[fx.thornsFront]);
+    ctx.restore();
+  }
+
+  function drawJungle() {
+    if (!world.camps) return;
+    ctx.save();
+    ctx.textAlign = 'center';
+    for (const c of world.camps) {
+      ctx.strokeStyle = 'rgba(199,139,255,0.35)';
+      ctx.setLineDash([6, 8]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(c.x, c.y, 60, 34, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      if (c.respawnAt !== null) {
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(230,200,255,0.8)';
+        ctx.font = '600 20px system-ui, sans-serif';
+        ctx.fillText(`${Math.max(0, Math.ceil((c.respawnAt - world.time) / 1000))} s`, c.x, c.y + 7);
+      }
+    }
+    // Fosse du boss, au centre exact de la carte.
+    const { x, y } = world.match.boss;
+    ctx.setLineDash([12, 10]);
+    ctx.strokeStyle = 'rgba(255,179,71,0.5)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 130, 74, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    if (world.boss.unitId === null) {
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,200,120,0.9)';
+      ctx.font = '700 26px system-ui, sans-serif';
+      ctx.fillText(`Boss ${fmtClock(Math.max(0, world.boss.spawnAt - world.time))}`, x, y + 9);
+    }
+    ctx.restore();
+  }
+
+  function drawAim(hero, aim) {
+    if (!aim || hero.dead || hero.cast) return;
+    const ab = hero.def.abilities && hero.def.abilities[aim.slot];
+    if (!ab || hero.rank[aim.slot] < 1) return;
+    const rank = hero.rank[aim.slot];
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,211,107,0.16)';
+    ctx.strokeStyle = 'rgba(255,211,107,0.8)';
+    ctx.lineWidth = 3;
+    const t = hero.targetId !== null ? getUnit(world, hero.targetId) : null;
+    let ax = aim.x;
+    let ay = aim.y;
+    let range = ab.range[Math.min(rank, ab.range.length) - 1];
+    if (ab.kind === 'dash' && t && !t.dead && edgeDistance(hero, t) <= range) {
+      ax = t.x;
+      ay = t.y;
+      range = Math.min(range, Math.hypot(t.x - hero.x, t.y - hero.y) + (ab.endsPast || 0));
+    }
+    const len = Math.hypot(ax - hero.x, ay - hero.y) || 1;
+    const dx = (ax - hero.x) / len;
+    const dy = (ay - hero.y) / len;
+    if (ab.kind === 'dash') {
+      const w = (ab.hitRadius || 40) * 2;
+      ctx.translate(hero.x, hero.y);
+      ctx.rotate(Math.atan2(dy, dx));
+      ctx.fillRect(0, -w / 2, range, w);
+      ctx.strokeRect(0, -w / 2, range, w);
+    } else if (ab.kind === 'fan') {
+      for (const deg of ab.anglesDeg) {
+        const a = Math.atan2(dy, dx) + (deg * Math.PI) / 180;
+        ctx.beginPath();
+        ctx.moveTo(hero.x, hero.y);
+        ctx.lineTo(hero.x + Math.cos(a) * range, hero.y + Math.sin(a) * range);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
   function drawBar(x, y, w, h, ratio, color, label) {
     ctx.save();
     ctx.fillStyle = 'rgba(8,10,16,0.85)';
@@ -349,6 +599,9 @@ export function createRenderer(canvas, world, images) {
       ctx.restore();
     } else if (u.kind === 'minion') {
       if (ratio < 1) drawBar(u.x - 22, u.y - u.radius * 2.6 - 6, 44, 6, ratio, c);
+    } else if (u.kind === 'monster') {
+      if (u.boss) drawBar(u.x - 70, u.y - u.radius * 2.6 - 14, 140, 12, ratio, '#ffb347', `Boss  ${Math.ceil(u.hp)}/${u.maxHp}`);
+      else if (ratio < 1) drawBar(u.x - 26, u.y - u.radius * 2.5 - 6, 52, 7, ratio, '#c78bff');
     } else {
       const top = u.y - (u.kind === 'core' ? 215 : 185);
       drawBar(u.x - 55, top, 110, 10, ratio, c, vulnLabel(u));
@@ -418,6 +671,7 @@ export function createRenderer(canvas, world, images) {
     const localTeam = local ? local.team : 'ally';
     const foe = localTeam === 'ally' ? 'enemy' : 'ally';
     const u = Math.max(1, canvas.height / 900); // échelle d'interface
+    hudHits = [];
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 
@@ -471,7 +725,169 @@ export function createRenderer(canvas, world, images) {
       ctx.fillText(txt, cx, canvas.height * 0.3);
     }
     if (world.match) drawMinimap(localTeam, u);
+    if (world.match) {
+      drawBossLine(u);
+      drawAbilityBar(local, u);
+      drawBonusPrompt(local, u);
+    }
+    drawToasts(u);
     ctx.restore();
+  }
+
+  function pushHit(x, y, w, h, action) {
+    hudHits.push({ x, y, w, h, action });
+  }
+
+  function wrapText(text, x, y, lineH, maxLines) {
+    const words = text.split(' ');
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      if (ctx.measureText(cur ? `${cur} ${w}` : w).width > 58 * (canvas.height / 900) && cur) {
+        lines.push(cur);
+        cur = w;
+      } else cur = cur ? `${cur} ${w}` : w;
+    }
+    lines.push(cur);
+    lines.slice(0, maxLines).forEach((l, i, a) => ctx.fillText(l, x, y + (i - (a.length - 1) / 2) * lineH));
+  }
+
+  function drawAbilityBar(local, u) {
+    if (!local || !world.match || !local.def.abilities) return;
+    const ab = local.def.abilities;
+    const levels = world.match.progression.levels;
+    const cx = canvas.width / 2;
+    const size = 66 * u;
+    const gap = 12 * u;
+    const total = 3 * size + 2 * gap;
+    const x0 = cx - total / 2;
+    const y0 = canvas.height - 150 * u;
+
+    // Niveau, XP et points à dépenser.
+    const by = y0 - 34 * u;
+    panel(x0 - 6 * u, by - 6 * u, total + 12 * u, 28 * u);
+    const prevT = levels[local.level - 1];
+    const nextT = local.level < levels.length ? levels[local.level] : null;
+    ctx.fillStyle = '#10151f';
+    ctx.fillRect(x0, by + 12 * u, total, 6 * u);
+    ctx.fillStyle = COLORS.gold;
+    ctx.fillRect(x0, by + 12 * u, nextT ? (total * (local.xp - prevT)) / (nextT - prevT) : total, 6 * u);
+    ctx.font = `700 ${13 * u}px system-ui, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = COLORS.ink;
+    ctx.fillText(`Niv ${local.level}`, x0, by + 8 * u);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = local.points > 0 ? COLORS.gold : 'rgba(244,241,232,0.7)';
+    ctx.fillText(local.points > 0 ? `${local.points} point${local.points > 1 ? 's' : ''} à dépenser` : nextT ? `XP ${local.xp} / ${nextT}` : 'Niveau max', x0 + total, by + 8 * u);
+
+    const slots = [
+      { id: 'auto', key: 'clic', name: 'Attaque', rank: local.rank.auto, ready: true, total: 0, needs: null },
+      { id: 'skill', key: 'Q', name: ab.skill.name, rank: local.rank.skill, total: ab.skill.cooldownMs[Math.max(0, local.rank.skill - 1)], needs: 'Niv 2' },
+      { id: 'ult', key: 'R', name: ab.ult.name, rank: local.rank.ult, total: ab.ult.cooldownMs[Math.max(0, local.rank.ult - 1)], needs: 'Niv 3' },
+    ];
+    slots.forEach((sl, i) => {
+      const x = x0 + i * (size + gap);
+      const left = sl.id === 'auto' ? 0 : cooldownLeft(world, local, sl.id);
+      const usable = sl.rank > 0 && left === 0 && !local.cast && !local.dead;
+      ctx.fillStyle = sl.rank > 0 ? 'rgba(14,18,28,0.9)' : 'rgba(14,18,28,0.55)';
+      ctx.fillRect(x, y0, size, size);
+      ctx.strokeStyle = usable && sl.id !== 'auto' ? COLORS.gold : 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = usable && sl.id !== 'auto' ? 3 : 1;
+      ctx.strokeRect(x + 0.5, y0 + 0.5, size, size);
+      ctx.fillStyle = sl.rank > 0 ? COLORS.ink : 'rgba(244,241,232,0.45)';
+      ctx.textAlign = 'center';
+      ctx.font = `600 ${12 * u}px system-ui, sans-serif`;
+      if (!(left > 0 && sl.rank > 0)) wrapText(sl.name, x + size / 2, y0 + size / 2 - 2 * u, 14 * u, 3);
+      ctx.textAlign = 'left';
+      ctx.font = `700 ${11 * u}px system-ui, sans-serif`;
+      ctx.fillStyle = COLORS.gold;
+      ctx.fillText(sl.key, x + 5 * u, y0 + 13 * u);
+      // Rang : trois repères.
+      for (let r = 0; r < 3; r++) {
+        ctx.fillStyle = r < sl.rank ? COLORS.gold : 'rgba(255,255,255,0.18)';
+        ctx.fillRect(x + size / 2 - 17 * u + r * 12 * u, y0 + size - 9 * u, 9 * u, 4 * u);
+      }
+      if (sl.rank === 0) {
+        ctx.fillStyle = 'rgba(244,241,232,0.65)';
+        ctx.textAlign = 'center';
+        ctx.font = `600 ${11 * u}px system-ui, sans-serif`;
+        ctx.fillText(sl.needs, x + size / 2, y0 + size - 14 * u);
+      }
+      if (left > 0 && sl.rank > 0) {
+        ctx.fillStyle = 'rgba(5,7,12,0.7)';
+        ctx.fillRect(x, y0, size, size * Math.min(1, left / sl.total));
+        ctx.fillStyle = COLORS.ink;
+        ctx.textAlign = 'center';
+        ctx.font = `700 ${22 * u}px system-ui, sans-serif`;
+        ctx.fillText(String(Math.ceil(left / 1000)), x + size / 2, y0 + size / 2 + 8 * u);
+      }
+      // Bouton « + » : un point à dépenser (auto et skill, jusqu'au rang 3).
+      if (sl.id !== 'ult' && local.points > 0 && sl.rank < 3) {
+        const bx = x + size - 6 * u;
+        const byy = y0 - 4 * u;
+        ctx.fillStyle = COLORS.gold;
+        ctx.beginPath();
+        ctx.arc(bx, byy, 13 * u, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#1b2230';
+        ctx.textAlign = 'center';
+        ctx.font = `800 ${20 * u}px system-ui, sans-serif`;
+        ctx.fillText('+', bx, byy + 7 * u);
+        pushHit(bx - 17 * u, byy - 17 * u, 34 * u, 34 * u, { type: 'level_up', slot: sl.id });
+      }
+      if (sl.id !== 'auto') pushHit(x, y0, size, size, { type: 'cast-slot', slot: sl.id });
+    });
+  }
+
+  function drawBonusPrompt(local, u) {
+    const ch = world.bonus && local ? world.bonus.choices.find((c) => c.chooserId === local.id && !c.lane) : null;
+    if (!ch) return;
+    const cx = canvas.width / 2;
+    const w = 380 * u;
+    const y = 112 * u;
+    panel(cx - w / 2, y, w, 86 * u);
+    ctx.fillStyle = COLORS.gold;
+    ctx.textAlign = 'center';
+    ctx.font = `700 ${16 * u}px system-ui, sans-serif`;
+    ctx.fillText(`Vague renforcée : choisissez une ligne (${Math.max(0, Math.ceil((ch.expiresAt - world.time) / 1000))} s)`, cx, y + 24 * u);
+    [['top', 'Haut'], ['bottom', 'Bas']].forEach(([lane, label], i) => {
+      const bx = cx - 150 * u + i * 160 * u;
+      ctx.fillStyle = 'rgba(255,211,107,0.18)';
+      ctx.strokeStyle = COLORS.gold;
+      ctx.lineWidth = 2;
+      ctx.fillRect(bx, y + 38 * u, 140 * u, 36 * u);
+      ctx.strokeRect(bx, y + 38 * u, 140 * u, 36 * u);
+      ctx.fillStyle = COLORS.ink;
+      ctx.font = `700 ${17 * u}px system-ui, sans-serif`;
+      ctx.fillText(`${label}  (${i + 1})`, bx + 70 * u, y + 62 * u);
+      pushHit(bx, y + 38 * u, 140 * u, 36 * u, { type: 'bonus', lane });
+    });
+  }
+
+  function drawToasts(u) {
+    const now = performance.now();
+    for (let i = toasts.length - 1; i >= 0; i--) if (toasts[i].until < now) toasts.splice(i, 1);
+    // Coin haut droit : n'empiète ni sur le héros ni sur l'invite de choix de ligne.
+    const rx = canvas.width - 14 * u;
+    ctx.textAlign = 'right';
+    ctx.font = `600 ${15 * u}px system-ui, sans-serif`;
+    toasts.slice(-5).forEach((t, i) => {
+      const w = ctx.measureText(t.text).width + 28 * u;
+      const y = 14 * u + i * 32 * u;
+      ctx.fillStyle = 'rgba(14,18,28,0.85)';
+      ctx.fillRect(rx - w, y, w, 26 * u);
+      ctx.fillStyle = COLORS.ink;
+      ctx.fillText(t.text, rx - 14 * u, y + 18 * u);
+    });
+  }
+
+  function drawBossLine(u) {
+    if (!world.boss) return;
+    const cx = canvas.width / 2;
+    ctx.textAlign = 'center';
+    ctx.font = `600 ${13 * u}px system-ui, sans-serif`;
+    ctx.fillStyle = '#ffb347';
+    ctx.fillText(world.boss.unitId ? 'Boss en jeu' : `Boss dans ${fmtClock(Math.max(0, world.boss.spawnAt - world.time))}`, cx, 70 * u);
   }
 
   function drawMinimap(localTeam, u) {
@@ -546,7 +962,8 @@ export function createRenderer(canvas, world, images) {
 
   /* -------------------------------- dessin -------------------------------- */
 
-  function draw(dtMs, localId) {
+  function draw(dtMs, localId, aim) {
+    localId_ = localId;
     const { scale, ox, oy } = view(localId);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#0b0e15';
@@ -557,16 +974,21 @@ export function createRenderer(canvas, world, images) {
     ctx.rect(0, 0, world.map.width, world.map.height);
     ctx.clip();
     drawGround();
+    if (world.match) drawJungle();
+    for (const z of world.zones) zoneImageBack(z);
 
     const local = getUnit(world, localId);
     const localTeam = local ? local.team : 'ally';
+    drawAim(local, aim);
     for (const h of world.heroes) drawHeroOverlays(h, h.id === localId);
     const sorted = [...world.units].sort((a, b) => a.y - b.y);
     for (const e of sorted) {
       if (e.kind === 'hero') drawHero(e, localTeam);
       else if (e.kind === 'minion') drawMinion(e, localTeam);
+      else if (e.kind === 'monster') drawMonster(e);
       else drawStructure(e, localTeam);
     }
+    for (const z of world.zones) zoneImageFront(z);
     for (const p of world.projectiles) drawProjectile(p, localTeam);
     for (const e of world.units) drawBars(e, localTeam);
     drawFloaters(dtMs);
@@ -575,9 +997,18 @@ export function createRenderer(canvas, world, images) {
     if (debug) drawDebug(localId);
   }
 
+  function hitHud(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * lastView.dpr;
+    const y = (clientY - rect.top) * lastView.dpr;
+    for (const h of hudHits) if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) return h.action;
+    return null;
+  }
+
   return {
     draw,
     toWorld,
+    hitHud,
     setDebug: (v) => (debug = v),
     toggleDebug: () => (debug = !debug),
     isDebug: () => debug,

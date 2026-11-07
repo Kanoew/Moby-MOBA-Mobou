@@ -3,48 +3,319 @@
   "spawnOpenMs": 5000,
   "baseRegenPctPerSec": 0.08,
   "respawn": [
-    { "atS": 120, "sec": 5 },
-    { "atS": 300, "sec": 11 },
-    { "atS": 540, "sec": 20 }
+    {
+      "atS": 120,
+      "sec": 5
+    },
+    {
+      "atS": 300,
+      "sec": 11
+    },
+    {
+      "atS": 540,
+      "sec": 20
+    }
   ],
   "assistWindowMs": 10000,
   "towerAggroMs": 2500,
-  "spawnSlots": { "dx": 70, "dy": 100 },
+  "spawnSlots": {
+    "dx": 70,
+    "dy": 100
+  },
   "waves": {
     "firstMs": 30000,
     "intervalMs": 30000,
     "staggerMs": 450,
-    "composition": ["melee", "melee", "melee", "ranged"]
+    "composition": [
+      "melee",
+      "melee",
+      "melee",
+      "ranged"
+    ]
   },
   "units": {
     "melee": {
-      "kind": "minion", "name": "Sbire", "radius": 20,
-      "stats": { "hp": 240, "atk": 12, "def": 0, "speed": 150 },
-      "ai": { "aggro": 420, "leash": 650 },
-      "auto": { "kind": "melee", "range": 60, "hitSlack": 20, "intervalMs": 1000, "hitMs": 250, "durationMs": 450 }
+      "kind": "minion",
+      "name": "Sbire",
+      "radius": 20,
+      "stats": {
+        "hp": 240,
+        "atk": 12,
+        "def": 0,
+        "speed": 150
+      },
+      "ai": {
+        "aggro": 420,
+        "leash": 650
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 60,
+        "hitSlack": 20,
+        "intervalMs": 1000,
+        "hitMs": 250,
+        "durationMs": 450
+      },
+      "xp": 16
     },
     "ranged": {
-      "kind": "minion", "name": "Sbire à distance", "radius": 18,
-      "stats": { "hp": 160, "atk": 16, "def": 0, "speed": 150 },
-      "ai": { "aggro": 420, "leash": 650 },
-      "auto": { "kind": "projectile", "range": 280, "intervalMs": 1200, "hitMs": 300, "durationMs": 500,
-                "projectile": { "speed": 700, "radius": 10, "maxLifeMs": 2500 } }
+      "kind": "minion",
+      "name": "Sbire à distance",
+      "radius": 18,
+      "stats": {
+        "hp": 160,
+        "atk": 16,
+        "def": 0,
+        "speed": 150
+      },
+      "ai": {
+        "aggro": 420,
+        "leash": 650
+      },
+      "auto": {
+        "kind": "projectile",
+        "range": 280,
+        "intervalMs": 1200,
+        "hitMs": 300,
+        "durationMs": 500,
+        "projectile": {
+          "speed": 700,
+          "radius": 10,
+          "maxLifeMs": 2500
+        }
+      },
+      "xp": 12
     },
     "tower-outer": {
-      "kind": "tower", "tier": "outer", "name": "Tour extérieure", "radius": 60,
-      "stats": { "hp": 1800, "atk": 130, "def": 30, "speed": 0 },
-      "auto": { "kind": "projectile", "range": 400, "intervalMs": 1200, "hitMs": 100, "durationMs": 300,
-                "projectile": { "speed": 1300, "radius": 12, "maxLifeMs": 2000 } }
+      "kind": "tower",
+      "tier": "outer",
+      "name": "Tour extérieure",
+      "radius": 60,
+      "stats": {
+        "hp": 1800,
+        "atk": 130,
+        "def": 30,
+        "speed": 0
+      },
+      "auto": {
+        "kind": "projectile",
+        "range": 400,
+        "intervalMs": 1200,
+        "hitMs": 100,
+        "durationMs": 300,
+        "projectile": {
+          "speed": 1300,
+          "radius": 12,
+          "maxLifeMs": 2000
+        }
+      }
     },
     "tower-inner": {
-      "kind": "tower", "tier": "inner", "name": "Tour intérieure", "radius": 66,
-      "stats": { "hp": 2200, "atk": 140, "def": 30, "speed": 0 },
-      "auto": { "kind": "projectile", "range": 400, "intervalMs": 1200, "hitMs": 100, "durationMs": 300,
-                "projectile": { "speed": 1300, "radius": 12, "maxLifeMs": 2000 } }
+      "kind": "tower",
+      "tier": "inner",
+      "name": "Tour intérieure",
+      "radius": 66,
+      "stats": {
+        "hp": 2200,
+        "atk": 140,
+        "def": 30,
+        "speed": 0
+      },
+      "auto": {
+        "kind": "projectile",
+        "range": 400,
+        "intervalMs": 1200,
+        "hitMs": 100,
+        "durationMs": 300,
+        "projectile": {
+          "speed": 1300,
+          "radius": 12,
+          "maxLifeMs": 2000
+        }
+      }
     },
     "core": {
-      "kind": "core", "name": "Noyau", "radius": 90,
-      "stats": { "hp": 3000, "atk": 0, "def": 20, "speed": 0 }
+      "kind": "core",
+      "name": "Noyau",
+      "radius": 90,
+      "stats": {
+        "hp": 3000,
+        "atk": 0,
+        "def": 20,
+        "speed": 0
+      }
+    },
+    "brute": {
+      "kind": "minion",
+      "name": "Brute",
+      "radius": 26,
+      "xp": 30,
+      "stats": {
+        "hp": 520,
+        "atk": 22,
+        "def": 15,
+        "speed": 140
+      },
+      "ai": {
+        "aggro": 420,
+        "leash": 650
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 70,
+        "hitSlack": 20,
+        "intervalMs": 1100,
+        "hitMs": 300,
+        "durationMs": 520
+      }
+    },
+    "small": {
+      "kind": "monster",
+      "name": "Petit monstre",
+      "radius": 24,
+      "xp": 40,
+      "stats": {
+        "hp": 220,
+        "atk": 14,
+        "def": 0,
+        "speed": 170
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 60,
+        "hitSlack": 20,
+        "intervalMs": 1000,
+        "hitMs": 250,
+        "durationMs": 450
+      }
+    },
+    "big": {
+      "kind": "monster",
+      "name": "Gros monstre",
+      "radius": 34,
+      "xp": 80,
+      "stats": {
+        "hp": 420,
+        "atk": 22,
+        "def": 10,
+        "speed": 160
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 70,
+        "hitSlack": 20,
+        "intervalMs": 1200,
+        "hitMs": 300,
+        "durationMs": 520
+      }
+    },
+    "boss": {
+      "kind": "monster",
+      "name": "Boss",
+      "radius": 70,
+      "xp": 300,
+      "boss": true,
+      "stats": {
+        "hp": 2200,
+        "atk": 50,
+        "def": 20,
+        "speed": 150
+      },
+      "auto": {
+        "kind": "melee",
+        "range": 90,
+        "hitSlack": 30,
+        "intervalMs": 1600,
+        "hitMs": 500,
+        "durationMs": 800
+      }
     }
+  },
+  "progression": {
+    "levels": [
+      0,
+      90,
+      220,
+      400,
+      640,
+      940,
+      1300,
+      1720,
+      2200
+    ],
+    "pointLevels": [
+      2,
+      4,
+      5,
+      7,
+      8
+    ],
+    "ultLevels": [
+      3,
+      6,
+      9
+    ],
+    "maxRank": 3,
+    "growth": {
+      "hp": 0.08,
+      "atk": 0.06,
+      "def": 0.05
+    },
+    "autoRankBonus": [
+      0,
+      0.15,
+      0.3
+    ],
+    "shareRadius": 1000,
+    "heroKillXp": {
+      "base": 80,
+      "perLevel": 25
+    }
+  },
+  "slowMinSpeed": 0.4,
+  "jungle": {
+    "startMs": 30000,
+    "respawnMs": 60000,
+    "leash": 480,
+    "regenPctPerSec": 0.2,
+    "camps": [
+      {
+        "x": 760,
+        "y": 660,
+        "monsters": [
+          "small",
+          "small"
+        ]
+      },
+      {
+        "x": 760,
+        "y": 1140,
+        "monsters": [
+          "small",
+          "small"
+        ]
+      },
+      {
+        "x": 1120,
+        "y": 900,
+        "monsters": [
+          "big"
+        ]
+      }
+    ]
+  },
+  "boss": {
+    "announceMs": 195000,
+    "spawnMs": 210000,
+    "respawnDelayMs": 210000,
+    "announceLeadMs": 15000,
+    "x": 1600,
+    "y": 900,
+    "choiceMs": 10000,
+    "defaultLane": "top",
+    "reinforced": [
+      "brute",
+      "brute"
+    ]
   }
 }
