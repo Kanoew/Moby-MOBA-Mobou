@@ -1,5 +1,5 @@
 // Retours sonores courts (WebAudio, aucun fichier). Créé au premier appui de l'utilisateur, coupable.
-let ctx = null;
+let ctx = null, master = null;
 let muted = false;
 try {
   muted = localStorage.getItem('moba.mute') === '1' || new URLSearchParams(location.search).get('mute') === '1';
@@ -26,6 +26,11 @@ export function unlockAudio() {
   if (typeof AudioContext === 'undefined') return;
   try {
     ctx = new AudioContext();
+    master = ctx.createGain(); master.gain.value = 0.65;
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -18; limiter.knee.value = 12; limiter.ratio.value = 8;
+    limiter.attack.value = 0.003; limiter.release.value = 0.12;
+    master.connect(limiter).connect(ctx.destination);
   } catch {
     ctx = null;
   }
@@ -40,7 +45,7 @@ function tone(freq, start, dur, type = 'sine', gain = 0.06) {
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g).connect(ctx.destination);
+  o.connect(g).connect(master);
   o.start(t0);
   o.stop(t0 + dur + 0.02);
 }
@@ -52,6 +57,8 @@ const SOUNDS = {
   hit_blade: () => { tone(620, 0, 0.035, 'triangle', 0.025); tone(180, 0.025, 0.07, 'sawtooth', 0.014); },
   hit_heavy: () => { tone(95, 0, 0.11, 'triangle', 0.045); tone(190, 0.02, 0.06, 'triangle', 0.025); },
   hit_magic: () => { tone(880, 0, 0.07, 'sine', 0.03); tone(1320, 0.04, 0.11, 'sine', 0.02); },
+  skill_dash: () => { tone(260, 0, 0.06, 'triangle', 0.02); tone(520, 0.035, 0.08, 'sine', 0.015); },
+  skill_magic: () => { tone(660, 0, 0.07, 'sine', 0.02); tone(990, 0.035, 0.09, 'sine', 0.015); },
   ult_cast: () => { tone(196, 0, 0.12, 'triangle', 0.04); tone(392, 0.08, 0.18, 'sine', 0.025); },
   kill: () => { tone(784, 0, 0.1); tone(988, 0.09, 0.12); tone(1568, 0.18, 0.2, 'sine', 0.035); },
   defeat_hit: () => { tone(220, 0, 0.13, 'triangle', 0.03); tone(147, 0.1, 0.2, 'triangle', 0.025); },

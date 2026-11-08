@@ -1,0 +1,122 @@
+{
+  "viewport": "844x390",
+  "dpr": 2,
+  "cases": [
+    {
+      "mode": "full",
+      "load": "normal",
+      "rounds": [
+        {
+          "median": 15.300000000745058,
+          "p95": 18
+        },
+        {
+          "median": 14.599999999627471,
+          "p95": 15.699999999254942
+        },
+        {
+          "median": 14.700000001117587,
+          "p95": 17.40000000037253
+        }
+      ],
+      "filtersPerDraw": 5,
+      "stats": {
+        "mode": "full",
+        "bursts": 3,
+        "numbers": 1,
+        "flashes": 1,
+        "contacts": 0
+      },
+      "zones": 4,
+      "projectiles": 1,
+      "unchanged": true
+    },
+    {
+      "mode": "full",
+      "load": "dense",
+      "rounds": [
+        {
+          "median": 15.900000000372529,
+          "p95": 18
+        },
+        {
+          "median": 15.600000001490116,
+          "p95": 17.5
+        },
+        {
+          "median": 15,
+          "p95": 16.299999998882413
+        }
+      ],
+      "filtersPerDraw": 5,
+      "stats": {
+        "mode": "full",
+        "bursts": 32,
+        "numbers": 1,
+        "flashes": 1,
+        "contacts": 0
+      },
+      "zones": 4,
+      "projectiles": 1,
+      "unchanged": true
+    },
+    {
+      "mode": "light",
+      "load": "normal",
+      "rounds": [
+        {
+          "median": 15.599999999627471,
+          "p95": 17.09999999962747
+        },
+        {
+          "median": 15.700000001117587,
+          "p95": 16.90000000037253
+        },
+        {
+          "median": 15,
+          "p95": 16.300000000745058
+        }
+      ],
+      "filtersPerDraw": 5,
+      "stats": {
+        "mode": "light",
+        "bursts": 3,
+        "numbers": 1,
+        "flashes": 1,
+        "contacts": 0
+      },
+      "zones": 4,
+      "projectiles": 1,
+      "unchanged": true
+    },
+    {
+      "mode": "light",
+      "load": "dense",
+      "rounds": [
+        {
+          "median": 15.5,
+          "p95": 17.799999998882413
+        },
+        {
+          "median": 15.699999999254942,
+          "p95": 17.199999999254942
+        },
+        {
+          "median": 15.300000000745058,
+          "p95": 17
+        }
+      ],
+      "filtersPerDraw": 5,
+      "stats": {
+        "mode": "light",
+        "bursts": 8,
+        "numbers": 1,
+        "flashes": 1,
+        "contacts": 0
+      },
+      "zones": 4,
+      "projectiles": 1,
+      "unchanged": true
+    }
+  ]
+}
