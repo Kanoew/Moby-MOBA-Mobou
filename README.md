@@ -66,10 +66,10 @@ La caméra suit le héros avec un **lissage** (constante de temps 70 ms, 28 ms p
 | Explorer | glissé d'un doigt sur la zone libre (hors joystick et boutons) | flèches maintenues, ou bouton du milieu enfoncé + glissé |
 | Retour automatique | 1,2 s après le relâchement, puis retour progressif (moins de 1 s) | idem |
 | Recentrer tout de suite | appui court sur `#btn-cam` (◎, sous la mini-carte) | `Espace` ou clic sur ◎ |
-| Caméra libre maintenue (pas de retour) | appui long (0,45 s) sur ◎ ; un nouvel appui long ou un appui court la quitte | `Y` (bascule) |
+| Caméra libre maintenue (cadre fixe sur le terrain, même si le héros bouge) | appui long (0,45 s) sur ◎ ; un nouvel appui long ou un appui court la quitte | `Y` (bascule) |
 | Décalage vers la visée | automatique pendant la visée d'une compétence (30 % du vecteur, plafonné à 170) | idem |
 
-Conflits traités : un **appui** sur un ennemi (moins de 10 px de mouvement) le verrouille toujours, mais au relâchement du doigt et non plus à la pose (quelques dizaines de millisecondes de plus) ; un **glissé** ne donne aucun ordre, même s'il démarre sur un ennemi ; le joystick et un glissé de caméra se font en même temps avec deux doigts ; les zones du HUD dessiné (score) réagissent toujours à la pose. Le bouton ◎ est surligné en or quand la caméra est décalée, avec un fond plus chaud en mode libre.
+Conflits traités : un **appui** sur un ennemi (moins de 10 px de mouvement) le verrouille toujours, mais au relâchement du doigt et non plus à la pose (quelques dizaines de millisecondes de plus) ; un **glissé** ne donne aucun ordre, même s'il démarre sur un ennemi ; le joystick et un glissé de caméra se font en même temps avec deux doigts ; les zones du HUD dessiné (score) réagissent toujours à la pose. Le bouton ◎ est surligné en or quand la caméra est décalée, avec un fond plus chaud en mode libre. Le recentrage retrouve le héros dès l’image suivante et efface aussi le décalage de visée. Une pause, un panneau, une rotation bloquée, une perte de capture ou de focus annulent les gestes en cours. Pendant une visée, les glissés sur le terrain ne pilotent pas la caméra ; un second doigt ne déclenche pas le sort maintenu sur son bouton. Le bouton de recentrage est aussi accessible au clavier (Entrée).
 
 ## Vision et retours de jeu
 

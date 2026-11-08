@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCamera, CAMERA } from '../src/render/camera.js';
-import { createTapDrag } from '../src/input/pointer.js';
+import { bindPointer, createTapDrag } from '../src/input/pointer.js';
 import { createWorld, getUnit, step } from '../src/sim/world.js';
 
 const map = { width: 3200, height: 1800 };
@@ -218,4 +218,88 @@ test('la caméra n\'a aucune influence sur la simulation : même monde, mêmes �
     cam.update(16, { hero: getUnit(w2, 'a'), map: w2.map, view });
   }
   assert.deepEqual(w1.units.map((u) => [u.id, u.x, u.y, u.hp]), w2.units.map((u) => [u.id, u.x, u.y, u.hp]));
+});
+
+
+test('caméra : le mode libre reste au même point du terrain quand le héros bouge et vise', () => {
+  const cam = createCamera(), h = hero(1400, 900);
+  run(cam, 100, { hero: h });
+  cam.pan(400, 100);
+  run(cam, 500, { hero: h });
+  cam.release(); cam.toggleHold();
+  const before = cam.center();
+  h.x += 400; h.y += 150;
+  const after = run(cam, 2000, { hero: h, aim: { x: 2800, y: 1600 } });
+  assert.ok(Math.hypot(after.x - before.x, after.y - before.y) < 1);
+  cam.toggleHold();
+  const back = run(cam, 3000, { hero: h });
+  assert.ok(Math.hypot(back.x - h.x, back.y - h.y + CAMERA.yOffset) < 1);
+});
+
+test('caméra : le héros ne déplace pas le cadre pendant un glissé', () => {
+  const cam = createCamera(), h = hero(1400, 900);
+  run(cam, 100, { hero: h }); cam.pan(300, 0);
+  run(cam, 500, { hero: h });
+  h.x += 200;
+  const after = run(cam, 500, { hero: h });
+  assert.ok(Math.abs(after.x - 1700) < 1);
+});
+
+test('caméra : recentrage sans délai, même en pause et après une visée', () => {
+  const cam = createCamera(), h = hero(1600, 900);
+  run(cam, 600, { hero: h, aim: { x: 2300, y: 1200 } });
+  cam.pan(-500, 200); cam.toggleHold(); run(cam, 500, { hero: h });
+  cam.recenter();
+  assert.deepEqual(cam.update(0, { hero: h, aim: { x: 2300, y: 1200 }, map, view }), { x: 1600, y: 840 });
+  cam.pan(NaN, Infinity);
+  assert.ok(Number.isFinite(cam.update(16, { hero: h, aim: { x: 2000, y: NaN }, map, view }).x));
+});
+
+// Vérifier le routage des gestes sans navigateur : même API d'événements et de capture que le canvas.
+function pointerHarness() {
+  const handlers = new Map(), captured = new Set(), commands = [], pans = [];
+  let enabled = true, canPan = true, ends = 0;
+  const canvas = {
+    addEventListener(name, fn) { handlers.set(name, fn); },
+    setPointerCapture(id) { captured.add(id); },
+    hasPointerCapture(id) { return captured.has(id); },
+    releasePointerCapture(id) { captured.delete(id); },
+  };
+  const input = bindPointer(canvas, (x, y) => ({ x, y }), (x, y) => commands.push({ x, y }), {
+    onPan: (dx, dy) => pans.push({ dx, dy }), onPanEnd: () => ends++,
+    enabled: () => enabled, canPan: () => canPan, isHudHit: (e) => e.clientY < 20,
+  });
+  return { commands, pans, input, ends: () => ends, enabled: (v) => enabled = v, canPan: (v) => canPan = v,
+    send(name, props = {}) { handlers.get(name)({ pointerId: 1, pointerType: 'touch', button: 0, clientX: 100, clientY: 100, preventDefault() {}, ...props }); },
+  };
+}
+
+test('entrées caméra : appui cible, glissé sans commande, annulation et perte de capture sans cible accidentelle', () => {
+  const h = pointerHarness();
+  h.send('pointerdown'); h.send('pointerup'); assert.equal(h.commands.length, 1);
+  h.send('pointerdown'); h.send('pointermove', { clientX: 140 }); h.send('pointerup');
+  assert.equal(h.pans.length, 1); assert.equal(h.commands.length, 1); assert.equal(h.ends(), 1);
+  h.send('pointerdown'); h.send('lostpointercapture'); h.send('pointerup');
+  assert.equal(h.commands.length, 1);
+  h.send('pointerdown'); h.send('pointermove', { clientX: 150 }); h.input.cancel(); h.send('pointerup');
+  assert.equal(h.ends(), 2); assert.equal(h.commands.length, 1);
+});
+
+test('entrées caméra : pause bloque les commandes et la visée ne devient pas un glissé', () => {
+  const h = pointerHarness();
+  h.send('pointerdown'); h.enabled(false); h.send('pointerup');
+  assert.equal(h.commands.length, 0);
+  h.send('pointerdown', { pointerType: 'mouse' }); assert.equal(h.commands.length, 0);
+  h.enabled(true); h.canPan(false);
+  h.send('pointerdown'); h.send('pointermove', { clientX: 180 }); h.send('pointerup');
+  assert.equal(h.pans.length, 0); assert.equal(h.commands.length, 1);
+});
+
+test('entrées caméra : la souris et le HUD gardent leurs commandes, le bouton milieu explore', () => {
+  const h = pointerHarness();
+  h.send('pointerdown', { pointerType: 'mouse' }); assert.equal(h.commands.length, 1);
+  h.send('pointerdown', { clientY: 10 }); assert.equal(h.commands.length, 2);
+  h.send('pointerdown', { pointerType: 'mouse', button: 1 });
+  h.send('pointermove', { clientX: 160 }); h.send('pointerup');
+  assert.equal(h.pans.length, 1); assert.equal(h.ends(), 1); assert.equal(h.commands.length, 2);
 });

@@ -408,9 +408,9 @@ button:focus-visible { outline: 2px solid var(--ally); outline-offset: 3px; }
 .touch #target-controls .hud-btn { flex: 1 0 40%; justify-content: center; }
 
 /* Caméra hybride : bouton de recentrage, sous la mini-carte, hors de la zone du joystick. */
-#btn-cam { position: absolute; z-index: 9; left: max(12px, var(--safe-l)); top: 96px; width: 44px; height: 44px; min-height: 44px; padding: 0; display: grid; place-items: center; border-radius: 50%; touch-action: none; opacity: .75; }
+#btn-cam { position: absolute; z-index: 9; left: max(12px, var(--safe-l)); top: max(var(--safe-t), clamp(98px, 16.7vh, 195px)); width: 44px; height: 44px; min-height: 44px; padding: 0; display: grid; place-items: center; border-radius: 50%; touch-action: none; opacity: .75; }
 #btn-cam.free { opacity: 1; color: var(--gold); border-color: var(--gold); box-shadow: 0 0 14px #eccc8b55; }
 #btn-cam.held { background: linear-gradient(145deg, #5a4a24, #1f1a0e); }
-@media (max-height: 500px) { #btn-cam { top: 88px; } }
-@media (max-width: 650px) { #btn-cam { top: 150px; } }
+@media (max-height: 500px) { .touch #btn-cam { top: max(88px, var(--safe-t)); } }
+@media (max-width: 650px) and (min-height: 501px) { #btn-cam { top: max(150px, var(--safe-t)); } }
 .screen.no-economy #btn-cam { display: none; }

@@ -83,7 +83,7 @@ Validation : suite Node complète et parcours Chromium aux formats 1440×900, 84
 
 ## Caméra : bouton `#btn-cam`
 
-Bouton rond de 44 px, sous la mini-carte à gauche (hors du joystick), masqué dans le duel. Classes posées par le script : `.free` (caméra décalée ou libre, surlignée en or) et `.held` (mode libre maintenu). Appui court = recentrer, appui long = caméra libre. Il peut être restylé librement ; son identifiant et ces deux classes doivent rester. Le canvas continue d'envoyer ses glissés à la caméra : ne pas recouvrir la zone centrale et droite d'éléments qui capturent les doigts.
+Bouton rond de 44 px, sous la mini-carte à gauche (hors du joystick), masqué dans le duel. Classes posées par le script : `.free` (caméra décalée ou libre, surlignée en or) et `.held` (mode libre maintenu). Appui court = recentrer dès l’image suivante, appui long = caméra libre fixée au terrain (le héros peut continuer à se déplacer). Entrée active également le recentrage lorsque le bouton a le focus ; `aria-pressed` reflète le maintien de la vue libre. Il peut être restylé librement ; son identifiant et ces deux classes doivent rester. Le canvas continue d'envoyer ses glissés à la caméra : ne pas recouvrir la zone centrale et droite d'éléments qui capturent les doigts.
 
 - Gains d'or : le compteur du HUD monte en continu (or du temps) ; l'indicateur `#gold-gain` (« +20 ») ne s'affiche que pour les gains ponctuels (dernier coup, présence, objectif, élimination), jamais pour le revenu du temps (événement `gold` avec `source: 'passive'`). L'événement porte maintenant `source` (`kill`, `lane`, `tower`, `boss`, `passive`, `sale`) : utile pour de futurs sons ou chiffres flottants.
 
@@ -97,3 +97,10 @@ Pour les gains ponctuels (hors `source: 'passive'`), l'événement `gold` porte 
 
 - Le joystick passe par `createStickFilter` (hystérésis de zone morte) : ne pas rebrancher `stickVector` directement sur `steer`, sinon un pouce qui tremble annule des coups.
 - Le rendu dessine des positions interpolées pendant `renderer.draw(dt, localId, aim, alpha)` uniquement. Tout code de dessin doit lire `unit.x` / `unit.y` dans cette fonction (elles y sont lissées) ; tout code d'entrée ou de simulation lit les positions réelles. Un nouveau module `src/render/` ou `src/ui/` ne doit jamais stocker une position lue pendant le dessin.
+
+
+### Validation du complément caméra sur 0.12.0
+
+Les glissés du canvas passent par `bindPointer` et sa méthode `cancel()`. Appeler cette annulation lors des interruptions (pause, changement de partie, panneau, rotation bloquée, perte de focus). Les pertes de capture et `pointercancel` ne doivent jamais produire de sélection. Le joystick et le bouton de compétence gardent leurs propres captures ; pendant la visée tactile, aucun autre doigt sur le canvas ne lance le sort. Le mode libre maintient un point de la carte, pas un décalage attaché au héros.
+
+Le bouton caméra reste sous la mini-carte, sur une cible de 44 px, avec prise en compte des marges sûres. Ne pas déplacer cette cible dans le joystick ni recouvrir la zone centrale d’exploration. Voir `docs/hybrid-camera-validation.md` pour les scénarios et limites de validation.

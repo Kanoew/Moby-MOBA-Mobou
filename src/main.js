@@ -87,6 +87,7 @@ async function boot() {
 
   let game = null; // { world, renderer, hero, aim, paused, ended }
   let pointer = { x: 0, y: 0 };
+  let pointerScreen = null;
   const me = () => (game ? getUnit(game.world, PLAYER_ID) : null);
   const issue = (cmd) => (game ? issueCommand(game.world, PLAYER_ID, cmd) : false);
   const hud = createHud({ issue, getGame: () => game, localId: PLAYER_ID, heroDefs });
@@ -112,6 +113,7 @@ async function boot() {
   }
 
   function startGame(hero, picks) {
+    resetCameraInput();
     const world = createWorld({ map: duel ? arena : map3v3, heroDefs, match: duel ? null : matchCfg, roster: makeRoster(hero, picks), seed });
     const renderer = createRenderer(canvas, world, images, { touch: touchMode });
     renderer.setDebug(game ? game.renderer.isDebug() : debugOn);
@@ -138,6 +140,7 @@ async function boot() {
   }
 
   function quitToMenu() {
+    resetCameraInput();
     if (game) issue({ type: 'steer', x: 0, y: 0 });
     game = null;
     ui.go('home');
@@ -161,6 +164,7 @@ async function boot() {
   function applyOrientation() {
     const blocked = isPortraitBlocked();
     rotateEl.hidden = !blocked;
+    if (blocked) resetCameraInput();
     if (blocked && game) issue({ type: 'steer', x: 0, y: 0 });
   }
   window.addEventListener('resize', applyOrientation);
@@ -205,7 +209,7 @@ async function boot() {
     if (!game || game.ended) return;
     game.paused = p;
     $('#pause').hidden = !p;
-    if (p) issue({ type: 'steer', x: 0, y: 0 });
+    if (p) { resetCameraInput(); issue({ type: 'steer', x: 0, y: 0 }); }
   }
 
   /* ----- Commandes tactiles ----- */
@@ -234,7 +238,7 @@ async function boot() {
     }
   }
 
-  bindPointer(
+  const pointerInput = bindPointer(
     canvas,
     (cx, cy) => game.renderer.toWorld(cx, cy),
     (x, y, ev) => {
@@ -244,7 +248,7 @@ async function boot() {
         hudAction(hud);
         return;
       }
-      if (me().dead) return;
+      if (me().dead || game.aim?.fromTouch) return;
       if (game.aim) {
         cast(game.aim.slot, { x, y });
         game.aim = null;
@@ -257,6 +261,8 @@ async function boot() {
     },
     {
       // Caméra hybride : un glissé (doigt sur la zone libre, ou molette enfoncée) déplace la vue, il ne donne aucun ordre.
+      enabled: () => !!game && ui.screen() === 'game' && !game.paused && !game.world.over && !isPortraitBlocked() && !hud.isOverlayOpen(),
+      canPan: () => !!game?.world.match && !game.aim,
       isHudHit: (ev) => !!(game && game.renderer.hitHud(ev.clientX, ev.clientY)),
       onPan: (dx, dy) => {
         if (!game || game.paused || game.world.over || isPortraitBlocked()) return;
@@ -266,7 +272,11 @@ async function boot() {
       onPanEnd: () => game && game.renderer.camera.release(),
     },
   );
-  canvas.addEventListener('pointermove', (e) => game && (pointer = game.renderer.toWorld(e.clientX, e.clientY)));
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') return;
+    pointerScreen = { x: e.clientX, y: e.clientY };
+    if (game) pointer = game.renderer.toWorld(e.clientX, e.clientY);
+  });
   canvas.addEventListener('contextmenu', () => game && (game.aim = null));
 
   window.addEventListener('keydown', (e) => {
@@ -288,12 +298,14 @@ async function boot() {
       else setPaused(!game.paused);
       return;
     }
-    if (game.paused) return;
+    if (game.paused || isPortraitBlocked()) return;
+    if (hud.isOverlayOpen() && ['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ', 'y'].includes(k)) return;
     if (k === 'arrowleft' || k === 'arrowright' || k === 'arrowup' || k === 'arrowdown') {
       camKeys.add(k);
       e.preventDefault();
     } else if (k === ' ') {
       e.preventDefault();
+      resetCameraInput();
       game.renderer.camera.recenter();
     } else if (k === 'y') {
       if (e.repeat) return;
@@ -323,20 +335,25 @@ async function boot() {
     if (e.key === 'Tab' && game) hud.showScores(false);
     if (camKeys.delete(e.key.toLowerCase()) && !camKeys.size && game) game.renderer.camera.release();
   });
-  window.addEventListener('blur', () => {
-    if (camKeys.size && game) game.renderer.camera.release();
-    camKeys.clear();
-  });
+  window.addEventListener('blur', () => resetCameraInput());
 
   // Bouton de caméra : appui court = recentrer tout de suite ; appui long = caméra libre maintenue (ou retour au suivi).
   const camBtn = $('#btn-cam');
   let camPress = null;
+  function resetCameraInput() {
+    pointerInput.cancel();
+    camKeys.clear();
+    if (game) game.renderer.camera.release();
+    if (camPress) clearTimeout(camPress.timer);
+    camPress = null;
+  }
+  const cameraEnabled = () => !!game && ui.screen() === 'game' && !game.paused && !game.world.over && !isPortraitBlocked() && !hud.isOverlayOpen();
   camBtn.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!game) return;
+    if (!cameraEnabled() || camPress) return;
     camPress = { id: e.pointerId, long: false, timer: setTimeout(() => {
-      if (!camPress || !game) return;
+      if (!camPress || !cameraEnabled()) return;
       camPress.long = true;
       const held = game.renderer.camera.toggleHold();
       hud.toast(held ? 'Caméra libre · touchez ◎ pour recentrer' : 'Caméra liée au héros');
@@ -348,10 +365,14 @@ async function boot() {
     clearTimeout(camPress.timer);
     const { long } = camPress;
     camPress = null;
-    if (!cancel && !long && game) game.renderer.camera.recenter();
+    if (!cancel && !long && cameraEnabled()) { resetCameraInput(); game.renderer.camera.recenter(); }
   };
   camBtn.addEventListener('pointerup', (e) => camEnd(e, false));
   camBtn.addEventListener('pointercancel', (e) => camEnd(e, true));
+  camBtn.addEventListener('lostpointercapture', (e) => camEnd(e, true));
+  camBtn.addEventListener('click', (e) => {
+    if (e.detail === 0 && cameraEnabled()) { resetCameraInput(); game.renderer.camera.recenter(); }
+  });
   const closeTargetMenu = () => {
     $('#target-controls').classList.remove('open');
     $('#target-toggle').setAttribute('aria-expanded', 'false');
@@ -386,6 +407,7 @@ async function boot() {
 
   /* ----- Fin de partie : verdict, éclats gagnés ----- */
   function finish() {
+    resetCameraInput();
     game.ended = true;
     const w = game.world;
     const outcome = w.over.winnerTeam === null ? 'draw' : w.over.winnerTeam === TEAM_ALLY ? 'win' : 'loss';
@@ -428,10 +450,12 @@ async function boot() {
       }
     }
     const p = me();
-    if (camKeys.size && !game.paused) {
+    if (!cameraEnabled()) resetCameraInput();
+    if (camKeys.size && cameraEnabled() && !game.aim) {
       const v = (1600 * dt) / 1000; // unités monde par image
       game.renderer.camera.pan((camKeys.has('arrowright') ? v : 0) - (camKeys.has('arrowleft') ? v : 0), (camKeys.has('arrowdown') ? v : 0) - (camKeys.has('arrowup') ? v : 0));
     }
+    if (pointerScreen) pointer = game.renderer.toWorld(pointerScreen.x, pointerScreen.y);
     const aim = game.aim && (!game.world.match || p.dead || !(canCast(game.world, p, game.aim.slot) || canQueueCast(game.world, p, game.aim.slot))) ? null : game.aim;
     if (!aim) game.aim = null;
     game.renderer.draw(blocked ? 0 : dt, PLAYER_ID, aim ? (aim.fromTouch ? aim : { slot: aim.slot, x: pointer.x, y: pointer.y }) : null, alphaOf(acc, STEP_MS));
@@ -439,6 +463,7 @@ async function boot() {
     const cs = game.renderer.camera.state();
     camBtn.classList.toggle('free', cs.free || cs.held);
     camBtn.classList.toggle('held', cs.held);
+    camBtn.setAttribute('aria-pressed', String(cs.held));
     if (game.world.match) hud.update();
     if (game.world.over && !game.ended) finish();
   }
