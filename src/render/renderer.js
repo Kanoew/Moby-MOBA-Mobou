@@ -6,6 +6,7 @@ import { edgeDistance, getUnit, isVulnerable } from '../sim/world.js';
 import { directionFromFacing, frameAt, pickSprite } from './animator.js';
 import { cooldownLeft } from '../sim/abilities.js';
 import { xpToNext } from '../sim/progression.js';
+import { createCombatEffects } from './combat-fx.js';
 import { createCamera } from './camera.js';
 import { applyInterpolation } from './interp.js';
 
@@ -78,8 +79,8 @@ export function createRenderer(canvas, world, images, opts = {}) {
   fog.height = Math.ceil(world.map.height / 4);
   const fogCtx = fog.getContext('2d');
   let introBeat = null;
-  let lastHitSound = -Infinity;
-  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  let reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const combatEffects = createCombatEffects(world, { localId: opts.localId ?? 'player', onSound: play, mode: opts.getEffectsMode?.() ?? (reducedMotion ? 'light' : 'full') });
   const visible = (u) => unitVisibleTo(world, u, localTeamOf());
   let debug = false;
   let cam = { x: world.map.width / 2, y: world.map.height / 2 };
@@ -93,15 +94,8 @@ export function createRenderer(canvas, world, images, opts = {}) {
   const heroName = (id) => (getUnit(world, id) ? getUnit(world, id).def.name : '?');
 
   world.onEvent = (ev) => {
-    if (ev.type === 'damage') {
-      const t = getUnit(world, ev.targetId);
-      if (t && visible(t)) {
-        const text = ev.amount > 0 ? String(ev.amount) : ev.absorbed > 0 ? `🛡 ${ev.absorbed}` : '0';
-        floaters.push({ x: t.x, y: t.y - (t.kind === 'hero' ? 130 : t.kind === 'monster' ? 110 : 90), text, age: 0, life: 900, color: '#ffe9a8' });
-        if (!reducedMotion && ev.amount > 0) sparks.push({ x: t.x, y: t.y - 45, age: 0, life: 200, impact: true });
-        if (ev.sourceId === localIdOf() && world.time - lastHitSound > 90) { play('hit'); lastHitSound = world.time; }
-      }
-    } else if (ev.type === 'move_order' && ev.heroId === localIdOf() && !reducedMotion) {
+    combatEffects.onEvent(ev);
+    if (ev.type === 'move_order' && ev.heroId === localIdOf() && !reducedMotion) {
       sparks.push({ x: ev.x, y: ev.y, age: 0, life: 450, move: true });
     } else if (ev.type === 'gold' && ev.heroId === localIdOf() && ev.source !== 'passive') {
       const hero = getUnit(world, ev.heroId);
@@ -109,6 +103,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
       const y = (ev.y ?? hero.y) - 115;
       const stack = floaters.filter((f) => f.gold && f.age < 450).length;
       floaters.push({ x, y: y - stack * 25, text: `+${ev.amount} or`, age: 0, life: 1200, color: COLORS.gold, gold: true });
+      if (floaters.length > 24) floaters.shift();
       if (!reducedMotion) for (let i = 0; i < Math.min(7, 3 + Math.floor(ev.amount / 30)); i++) {
         sparks.push({ x, y: y + 35, age: 0, life: 850, coin: true, vx: Math.cos(i * 2.4) * 65, vy: -90 - i * 12, phase: i });
       }
@@ -126,7 +121,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
       if (hero && hero.points > 0) parts.push(`${hero.points} point${hero.points > 1 ? 's' : ''} à dépenser`);
       toast(parts.join(' · '), 4200);
     }
-    else if (ev.type === 'death' && ev.heroId === localIdOf()) toast(`Éliminé${ev.killerId ? ' par ' + heroName(ev.killerId) : ''}`, 3500);
+    if (sparks.length > 64) sparks.splice(0, sparks.length - 64);
   };
   let localId_ = null;
   const localIdOf = () => localId_;
@@ -439,6 +434,17 @@ export function createRenderer(canvas, world, images, opts = {}) {
     ctx.restore();
   }
 
+  function drawLitSprite(unit, img, ...args) {
+    ctx.drawImage(img, ...args);
+    const alpha = combatEffects.flashAlpha(unit.id);
+    if (alpha <= 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, ...args);
+    ctx.restore();
+  }
+
   function drawHero(hero, localTeam) {
     if (hero.dead) return;
     drawRecall(hero);
@@ -453,6 +459,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
     ctx.stroke();
     ctx.restore();
 
+    combatEffects.drawActor(ctx, hero);
     const combat = inCombat(hero);
     const extra = ultFlags(hero);
     drawOrbit(hero, 'rear');
@@ -462,7 +469,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
     ctx.save();
     ctx.translate(hero.x, hero.y);
     if (s.flip) ctx.scale(-1, 1);
-    ctx.drawImage(images[s.sheet], s.sx, s.sy, s.sw, s.sh, -s.anchor[0] * s.scale, -s.anchor[1] * s.scale, s.sw * s.scale, s.sh * s.scale);
+    drawLitSprite(hero, images[s.sheet], s.sx, s.sy, s.sw, s.sh, -s.anchor[0] * s.scale, -s.anchor[1] * s.scale, s.sw * s.scale, s.sh * s.scale);
     ctx.restore();
     drawOrbit(hero, 'front');
     drawShieldFx(hero);
@@ -588,7 +595,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
       i = 0;
     }
     if (dirName === 'back') drawFlames(u, fam, dirName);
-    ctx.drawImage(images[sheet.sheet], i * L.cell[0], row * L.cell[1], L.cell[0], L.cell[1], u.x - L.anchor[0] * k, u.y - L.anchor[1] * k, L.cell[0] * k, L.cell[1] * k);
+    drawLitSprite(u, images[sheet.sheet], i * L.cell[0], row * L.cell[1], L.cell[0], L.cell[1], u.x - L.anchor[0] * k, u.y - L.anchor[1] * k, L.cell[0] * k, L.cell[1] * k);
     if (dirName !== 'back') drawFlames(u, fam, dirName);
   }
 
@@ -900,6 +907,17 @@ export function createRenderer(canvas, world, images, opts = {}) {
       drawAbilityBar(local, u);
       drawBonusPrompt(local, u);
     }
+    const combatBanner = combatEffects.banner();
+    const choosing = world.bonus?.choices.some((c) => c.chooserId === localId && !c.lane);
+    if (combatBanner && !choosing) {
+      ctx.save();
+      ctx.globalAlpha = combatBanner.alpha;
+      panel(cx - 150 * u, 96 * u, 300 * u, 34 * u);
+      ctx.textAlign = 'center'; ctx.fillStyle = combatBanner.color;
+      ctx.font = `800 ${19 * u}px system-ui, sans-serif`;
+      ctx.fillText(combatBanner.text, cx, 119 * u);
+      ctx.restore();
+    }
     drawToasts(u);
     ctx.restore();
   }
@@ -1185,6 +1203,11 @@ export function createRenderer(canvas, world, images, opts = {}) {
   /* -------------------------------- dessin -------------------------------- */
 
   function draw(dtMs, localId, aim, alpha = 1) {
+    const mode = opts.getEffectsMode?.() ?? (reducedMotion ? 'light' : 'full');
+    combatEffects.configure(mode);
+    reducedMotion = mode === 'light';
+    if (reducedMotion) sparks.length = 0;
+    combatEffects.advance(dtMs);
     // Positions interpolées entre deux pas de simulation, uniquement pendant le dessin (voir interp.js).
     const restore = applyInterpolation(world, alpha);
     try {
@@ -1196,7 +1219,13 @@ export function createRenderer(canvas, world, images, opts = {}) {
 
   function drawFrame(dtMs, localId, aim) {
     localId_ = localId;
-    const { scale, ox, oy } = view(localId, dtMs, aim);
+    let { scale, ox, oy } = view(localId, dtMs, aim);
+    if (!aim && !camera.state().dragging && !camera.state().held) {
+      const shake = combatEffects.shake();
+      ox += shake.x * lastView.dpr; oy += shake.y * lastView.dpr;
+      // La conversion écran/monde utilise exactement le même décalage que le dessin.
+      lastView = { ...lastView, ox, oy };
+    }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#0b0e15';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1225,6 +1254,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
     for (const z of world.zones) if (z.team === localTeam || pointVisibleTo(world, localTeam, z.x, z.y)) zoneImageFront(z);
     for (const p of world.projectiles) if (pointVisibleTo(world, localTeam, p.x, p.y)) drawProjectile(p, localTeam);
     for (const e of world.units) if (visible(e)) drawBars(e, localTeam);
+    combatEffects.draw(ctx);
     drawSparks(dtMs);
     drawFloaters(dtMs);
     ctx.restore();
@@ -1244,6 +1274,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
     draw,
     toWorld,
     camera,
+    combatEffects,
     /** Unités monde par pixel CSS : pour convertir un glissé d'écran en déplacement de caméra. */
     worldPerCssPx: () => 1 / (lastView.scale / lastView.dpr),
     hitHud,

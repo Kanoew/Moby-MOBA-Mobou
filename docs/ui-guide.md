@@ -104,3 +104,13 @@ Pour les gains ponctuels (hors `source: 'passive'`), l'événement `gold` porte 
 Les glissés du canvas passent par `bindPointer` et sa méthode `cancel()`. Appeler cette annulation lors des interruptions (pause, changement de partie, panneau, rotation bloquée, perte de focus). Les pertes de capture et `pointercancel` ne doivent jamais produire de sélection. Le joystick et le bouton de compétence gardent leurs propres captures ; pendant la visée tactile, aucun autre doigt sur le canvas ne lance le sort. Le mode libre maintient un point de la carte, pas un décalage attaché au héros.
 
 Le bouton caméra reste sous la mini-carte, sur une cible de 44 px, avec prise en compte des marges sûres. Ne pas déplacer cette cible dans le joystick ni recouvrir la zone centrale d’exploration. Voir `docs/hybrid-camera-validation.md` pour les scénarios et limites de validation.
+
+
+## Effets de combat — lot 3 du plan
+
+- `src/render/combat-fx.js` lit les événements déjà produits par la simulation. Ne pas déclencher d’impacts sur `swing_start`, ni modifier les instants de dégâts pour accorder un effet. Les positions mémorisées proviennent des événements ; les traînées lisent uniquement la position pendant le dessin, sans la conserver.
+- `drawLitSprite` réutilise la cellule et l’ancre du sprite pour une brève surbrillance additive. Les planches existantes restent la référence. Tous les effets spatiaux sont soumis à la visibilité, y compris après leur création si la cible disparaît dans le brouillard.
+- `#btn-effects`, dans la pause, est un bouton de 44 px environ. Conserver cet identifiant et son `aria-pressed` (mode allégé). Le réglage est persisté par `src/ui/effects.js` sous `moba.effects` ; le mouvement réduit du système est prioritaire et le bouton indique alors « système ».
+- Le mode allégé retire les ajouts décoratifs coûteux (flash, sillages, particules, secousses), garde les chiffres et de petits indicateurs statiques en fondu. Les assets des compétences demeurent affichés. Ne pas utiliser ce réglage pour changer une règle de combat.
+- La secousse concerne uniquement la transformation du monde : HUD et mini-carte restent fixes, `toWorld()` conserve la transformation réelle du dessin, et les gestes de caméra/visée ne sont pas secoués.
+- Le bandeau d’élimination ne capture aucun doigt et s’efface si le choix de vague du boss est prioritaire. Les séries/doubles éliminations et les nouvelles annonces d’objectifs restent hors de ce lot.
