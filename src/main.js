@@ -10,6 +10,7 @@ import { createUi } from './ui/screens.js';
 import { createLobbyView, LOBBY_MS } from './ui/lobby.js';
 import { attackAction, bindTouchControls, updateTouchHud } from './ui/touch.js';
 import { createHud } from './ui/hud.js';
+import { createEffectsPreference } from './ui/effects.js';
 import { isMuted, setMuted, unlockAudio } from './ui/sound.js';
 
 const STEP_MS = 16;
@@ -90,6 +91,8 @@ async function boot() {
   let pointerScreen = null;
   const me = () => (game ? getUnit(game.world, PLAYER_ID) : null);
   const issue = (cmd) => (game ? issueCommand(game.world, PLAYER_ID, cmd) : false);
+  const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const effectsPreference = createEffectsPreference(localStorage, motionPreference);
   const hud = createHud({ issue, getGame: () => game, localId: PLAYER_ID, heroDefs });
   window.addEventListener('pointerdown', unlockAudio, { capture: true });
   window.addEventListener('keydown', unlockAudio, { capture: true });
@@ -115,7 +118,7 @@ async function boot() {
   function startGame(hero, picks) {
     resetCameraInput();
     const world = createWorld({ map: duel ? arena : map3v3, heroDefs, match: duel ? null : matchCfg, roster: makeRoster(hero, picks), seed });
-    const renderer = createRenderer(canvas, world, images, { touch: touchMode });
+    const renderer = createRenderer(canvas, world, images, { touch: touchMode, localId: PLAYER_ID, getEffectsMode: effectsPreference.mode });
     renderer.setDebug(game ? game.renderer.isDebug() : debugOn);
     game = { world, renderer, hero, aim: null, paused: false, ended: false };
     const rendererEvents = world.onEvent;
@@ -404,6 +407,23 @@ async function boot() {
     syncSound();
   });
   syncSound();
+  const effectsBtn = $('#btn-effects');
+  let effectsSignature = '';
+  const syncEffects = () => {
+    const light = effectsPreference.mode() === 'light';
+    const signature = `${light}|${effectsPreference.systemReduced()}`;
+    if (signature === effectsSignature) return;
+    effectsSignature = signature;
+    effectsBtn.textContent = `Effets : ${light ? 'allégés' : 'complets'}${effectsPreference.systemReduced() ? ' (système)' : ''}`;
+    effectsBtn.disabled = effectsPreference.systemReduced();
+    effectsBtn.setAttribute('aria-pressed', String(light));
+  };
+  effectsBtn.addEventListener('click', () => {
+    effectsPreference.set(effectsPreference.mode() === 'full' ? 'light' : 'full');
+    syncEffects();
+  });
+  motionPreference.addEventListener('change', syncEffects);
+  syncEffects();
 
   /* ----- Fin de partie : verdict, éclats gagnés ----- */
   function finish() {
@@ -464,6 +484,7 @@ async function boot() {
     camBtn.classList.toggle('free', cs.free || cs.held);
     camBtn.classList.toggle('held', cs.held);
     camBtn.setAttribute('aria-pressed', String(cs.held));
+    syncEffects(); // synchroniser aussi après reprise d'onglet ou changement système sans événement media
     if (game.world.match) hud.update();
     if (game.world.over && !game.ended) finish();
   }

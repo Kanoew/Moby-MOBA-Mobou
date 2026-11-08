@@ -90,6 +90,16 @@ Le bouton (et la touche `A`) ne demande plus de cible : il choisit lui-même et 
 - Un déplacement, le joystick, `S`, un nouveau verrou simple, un rappel ou la mort annulent l'approche (le verrou simple reste « sans poursuite », comme le cahier §2).
 - **Exception assumée** à la règle « aucune poursuite automatique » : la poursuite n'existe que pour l'ordre explicite « Attaque » (commande `attack`), jamais pour un simple clic sur un ennemi.
 
+## Effets de combat (lot 3 du plan d'amélioration)
+
+Les impacts réels déclenchent un flash de sprite bref, des éclats de lame ou des particules magiques et des chiffres lisibles. Les coups très rapprochés sont regroupés pendant 90 ms ; une absorption complète affiche « Absorbé » sans faux impact. Yeji et Sweetie conservent leurs attaques immobiles : une traînée accompagne seulement leur fenêtre d’impact. Leurs dashs ont un sillage distinct, sans modification des déplacements ou des dégâts. Les ultimes gardent leurs planches et reçoivent des anneaux de lancement/activation ; les ronces ont leur retour d’impact à l’armement réel.
+
+Les sons distinguent lame, coup lourd et magie. Une élimination concernant le joueur affiche un bandeau compact pendant 1,6 s, accompagné d’un effet local si la victime était visible. Les petits tremblements de caméra (2,5 pixels CSS maximum, 160 ms) concernent seulement les coups importants impliquant le joueur ; ils sont masqués pendant la visée, le glissé et le maintien de la caméra libre. La conversion des clics utilise la transformation du dessin.
+
+Dans **Pause → Effets**, choisir **complets** ou **allégés**. Le choix est mémorisé dans le navigateur. Le mode allégé supprime les surbrillances, traînées, pièces et secousses ajoutées, réduit le budget d’impacts et conserve des indicateurs statiques en fondu avec les chiffres de dégâts. La réduction des animations demandée par le système impose ce mode. Les animations et zones de compétences existantes restent lisibles. Le réglage Son coupe également les nouveaux sons.
+
+Le rendu ne modifie pas la simulation et ne révèle aucune unité cachée. Budgets et validations : `docs/combat-effects-validation.md`.
+
 ## Architecture
 
 | Dossier | Rôle |
