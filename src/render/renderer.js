@@ -824,25 +824,29 @@ export function createRenderer(canvas, world, images, opts = {}) {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-    // Haut centre : chrono, éliminations, tours détruites.
     const cx = canvas.width / 2;
-    panel(cx - 170 * u, 8 * u, 340 * u, 46 * u);
-    pushHit(cx - 170 * u, 0, 340 * u, Math.max(54 * u, 44 * lastView.dpr), { type: 'scores' }); // toucher le score ouvre le tableau (cible tactile d'au moins 44 px)
-    ctx.textAlign = 'center';
-    ctx.fillStyle = COLORS.ink;
-    ctx.font = `700 ${22 * u}px system-ui, sans-serif`;
-    ctx.fillText(fmtClock(world.time), cx, 40 * u);
-    ctx.font = `600 ${15 * u}px system-ui, sans-serif`;
-    ctx.textAlign = 'right';
-    ctx.fillStyle = COLORS.ally;
-    ctx.fillText(`● ${world.stats[localTeam].kills} él.  ${world.stats[localTeam].towers} tours`, cx - 50 * u, 38 * u);
-    ctx.textAlign = 'left';
-    ctx.fillStyle = COLORS.enemy;
-    ctx.fillText(`▲ ${world.stats[foe].kills} él.  ${world.stats[foe].towers} tours`, cx + 50 * u, 38 * u);
+    if (!(opts.touch && world.match && opts.getMobileLayout)) {
+      // Haut centre : chrono, éliminations, tours détruites.
+
+      panel(cx - 170 * u, 8 * u, 340 * u, 46 * u);
+      pushHit(cx - 170 * u, 0, 340 * u, Math.max(54 * u, 44 * lastView.dpr), { type: 'scores' }); // toucher le score ouvre le tableau (cible tactile d'au moins 44 px)
+      ctx.textAlign = 'center';
+      ctx.fillStyle = COLORS.ink;
+      ctx.font = `700 ${22 * u}px system-ui, sans-serif`;
+      ctx.fillText(fmtClock(world.time), cx, 40 * u);
+      ctx.font = `600 ${15 * u}px system-ui, sans-serif`;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = COLORS.ally;
+      ctx.fillText(`● ${world.stats[localTeam].kills} él.  ${world.stats[localTeam].towers} tours`, cx - 50 * u, 38 * u);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = COLORS.enemy;
+      ctx.fillText(`▲ ${world.stats[foe].kills} él.  ${world.stats[foe].towers} tours`, cx + 50 * u, 38 * u);
+
+    }
 
     // Bas : PV du joueur, ou compte à rebours de réapparition.
     if (local) {
-      if (opts.touch) {
+      if (opts.touch && (!world.match || !opts.getMobileLayout)) {
         // Dimensions en pixels CSS : texte et jauge ont chacun leur ligne, quel que soit le DPR.
         const px = lastView.dpr;
         const bw = 200 * px;
@@ -860,7 +864,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
         ctx.fillStyle = COLORS.ally;
         ctx.fillRect(bx + 10 * px, top + 48 * px, (bw - 20 * px) * Math.max(0, Math.min(1, local.hp / local.maxHp)), 8 * px);
         ctx.textBaseline = 'alphabetic';
-      } else {
+      } else if (!opts.touch) {
         const bw = 360 * u;
         const bx = cx - bw / 2;
         const by = canvas.height - 46 * u;
@@ -912,10 +916,11 @@ export function createRenderer(canvas, world, images, opts = {}) {
     if (combatBanner && !choosing) {
       ctx.save();
       ctx.globalAlpha = combatBanner.alpha;
-      panel(cx - 150 * u, 96 * u, 300 * u, 34 * u);
+      const bannerX = opts.touch && opts.getMobileLayout ? (opts.getMobileLayout()?.centerX ?? canvas.clientWidth / 2) * lastView.dpr : cx;
+      panel(bannerX - 150 * u, 96 * u, 300 * u, 34 * u);
       ctx.textAlign = 'center'; ctx.fillStyle = combatBanner.color;
       ctx.font = `800 ${19 * u}px system-ui, sans-serif`;
-      ctx.fillText(combatBanner.text, cx, 119 * u);
+      ctx.fillText(combatBanner.text, bannerX, 119 * u);
       ctx.restore();
     }
     drawToasts(u);
@@ -1056,6 +1061,21 @@ export function createRenderer(canvas, world, images, opts = {}) {
   function drawToasts(u) {
     const now = performance.now();
     for (let i = toasts.length - 1; i >= 0; i--) if (toasts[i].until < now) toasts.splice(i, 1);
+    if (opts.touch && opts.getMobileLayout) {
+      // Un seul message court, hors des actions tactiles ; le retour d'élimination est prioritaire.
+      if (!toasts.length || combatEffects.banner()) return;
+      const px = lastView.dpr, width = Math.min(280, canvas.clientWidth - 32) * px;
+      const center = (opts.getMobileLayout()?.centerX ?? canvas.clientWidth / 2) * px;
+      const x = center - width / 2, y = ((opts.getMobileLayout()?.y ?? 12) + 48) * px;
+      ctx.font = `600 ${11 * px}px system-ui, sans-serif`;
+      let text = toasts.at(-1).text;
+      while (text.length && ctx.measureText(text + '…').width > width - 20 * px) text = text.slice(0, -1);
+      if (text !== toasts.at(-1).text) text += '…';
+      panel(x, y, width, 24 * px);
+      ctx.textAlign = 'center'; ctx.fillStyle = COLORS.ink;
+      ctx.fillText(text, center, y + 16 * px);
+      return;
+    }
     // Coin haut droit : n'empiète ni sur le héros ni sur l'invite de choix de ligne.
     const rx = canvas.width - 14 * u;
     ctx.textAlign = 'right';
@@ -1071,7 +1091,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
   }
 
   function drawBossLine(u) {
-    if (!world.boss) return;
+    if (!world.boss || (opts.touch && opts.getMobileLayout)) return;
     const cx = canvas.width / 2;
     ctx.textAlign = 'center';
     ctx.font = `600 ${13 * u}px system-ui, sans-serif`;
@@ -1081,10 +1101,11 @@ export function createRenderer(canvas, world, images, opts = {}) {
   }
 
   function drawMinimap(localTeam, u) {
-    const mw = (opts.touch ? 190 : 220) * u;
+    const mobile = opts.touch ? opts.getMobileLayout?.() : null;
+    const mw = mobile ? mobile.width * lastView.dpr : (opts.touch ? 190 : 220) * u;
     const mh = (mw * world.map.height) / world.map.width;
-    const x0 = 10 * u;
-    const y0 = 10 * u;
+    const x0 = mobile ? mobile.x * lastView.dpr : 10 * u;
+    const y0 = mobile ? mobile.y * lastView.dpr : 10 * u;
     const sx = mw / world.map.width;
     panel(x0 - 4, y0 - 4, mw + 8, mh + 8);
     ctx.save();

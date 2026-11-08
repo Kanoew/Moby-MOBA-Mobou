@@ -54,7 +54,7 @@ export function renderScoreTable(container, data, heroDefs, catalog) {
   }
 }
 
-export function createHud({ issue, getGame, localId, heroDefs }) {
+export function createHud({ issue, getGame, localId, heroDefs, touch = false }) {
   const els = {
     inventory: $('#inventory'),
     goldVal: $('#gold-val'),
@@ -102,14 +102,15 @@ export function createHud({ issue, getGame, localId, heroDefs }) {
   /* ----- inventaire (or + 3 emplacements) ----- */
   function renderInventory() {
     const h = hero();
-    const sig = `${h.gold}|${h.items.join(',')}`;
+    const gold = String(h.gold);
+    if (els.goldVal.textContent !== gold) els.goldVal.textContent = gold;
+    const sig = h.items.join(',');
     if (sig === sigInv) return;
     sigInv = sig;
-    els.goldVal.textContent = String(h.gold);
     els.slots.replaceChildren();
     for (const id of h.items) {
       const it = itemOf(id);
-      const b = el('button', `slot${it ? '' : ' empty'}`);
+      const b = el('button', `slot${it ? ' on' : ' empty'}`);
       b.type = 'button';
       b.title = it ? it.name : 'Emplacement libre';
       if (it) b.append(icon(it));
@@ -124,7 +125,7 @@ export function createHud({ issue, getGame, localId, heroDefs }) {
 
   /* ----- boutique ----- */
   function openShop() {
-    if (!world().match.items) return;
+    if (!world().match?.items) return;
     shopOpen = true;
     scoresOpen = false;
     els.scores.hidden = true;
@@ -259,6 +260,7 @@ export function createHud({ issue, getGame, localId, heroDefs }) {
 
   /* ----- scores ----- */
   function showScores(on) {
+    if (on && !world().match) return;
     if (on === scoresOpen) return;
     scoresOpen = on;
     els.scores.hidden = !on;
@@ -331,8 +333,12 @@ export function createHud({ issue, getGame, localId, heroDefs }) {
     const h = hero();
     const r = h.recall;
     els.recall.classList.toggle('active', !!r);
-    els.recall.textContent = r ? `Rappel ${((r.durationMs - r.t) / 1000).toFixed(1)}` : 'Rappel';
+    const recallLabel = els.recall.querySelector('.hud-label') || els.recall;
+    const recallText = r ? `${touch ? '' : 'Rappel '}${((r.durationMs - r.t) / 1000).toFixed(1)}${touch ? ' s' : ''}` : 'Rappel';
+    if (recallLabel.textContent !== recallText) recallLabel.textContent = recallText;
     els.recall.disabled = h.dead || !!h.cast;
+    const recallAria = r ? `Rappel en cours : ${((r.durationMs - r.t) / 1000).toFixed(1)} secondes` : 'Rappel à la base';
+    if (els.recall.getAttribute('aria-label') !== recallAria) els.recall.setAttribute('aria-label', recallAria);
   }
 
   function reset() {

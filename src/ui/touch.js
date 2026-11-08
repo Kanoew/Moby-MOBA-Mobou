@@ -234,26 +234,41 @@ export function bindTouchControls(els, api) {
   });
 }
 
-/** Met à jour l'aspect des boutons (recharge, rang, points) à partir de l'état du jeu. */
+/** Données de présentation ; un lancer n'interdit pas de mémoriser une autre commande. */
+export function abilityHudState(world, hero, slot) {
+  const rank = hero.rank[slot], left = cooldownLeft(world, hero, slot);
+  const total = hero.def.abilities[slot].cooldownMs[Math.max(0, rank - 1)];
+  const locked = rank < 1, cooling = !locked && left > 0;
+  return { rank, seconds: cooling ? Math.ceil(left / 1000) : 0,
+    fraction: cooling ? Math.max(0, Math.min(1, left / total)) : 0,
+    locked, cooling, ready: !locked && !cooling && !hero.cast && !hero.dead,
+    unavailable: hero.dead, state: hero.dead ? 'unavailable' : locked ? 'locked' : cooling ? 'cooling' : hero.cast ? 'busy' : 'ready' };
+}
+
+/** Met à jour les états et anneaux sans recréer les descendants des boutons capturant un doigt. */
 export function updateTouchHud(els, world, hero) {
   if (!hero || !world.match) return;
+  const text = (node, value) => { if (node.textContent !== value) node.textContent = value; };
+  const attr = (node, name, value) => { if (node.getAttribute(name) !== value) node.setAttribute(name, value); };
   const setSlot = (btn, slot) => {
-    const rank = hero.rank[slot];
-    const left = cooldownLeft(world, hero, slot);
-    const total = hero.def.abilities[slot].cooldownMs[Math.max(0, rank - 1)];
-    btn.classList.toggle('locked', rank < 1);
-    btn.classList.toggle('cooling', rank >= 1 && left > 0);
-    btn.classList.toggle('ready', rank >= 1 && left === 0 && !hero.cast && !hero.dead);
-    btn.style.setProperty('--cd', rank >= 1 && left > 0 ? String(Math.min(1, left / total)) : '0');
-    btn.querySelector('.cd-num').textContent = rank >= 1 && left > 0 ? String(Math.ceil(left / 1000)) : '';
-    btn.querySelector('.lock-note').textContent = rank < 1 ? (slot === 'skill' ? 'Niv 2' : 'Niv 3') : '';
-    btn.dataset.rank = String(rank);
+    const st = abilityHudState(world, hero, slot), name = hero.def.abilities[slot].name;
+    for (const cls of ['locked', 'cooling', 'ready', 'unavailable']) btn.classList.toggle(cls, st[cls]);
+    const cd = st.fraction.toFixed(3);
+    if (btn.style.getPropertyValue('--cd') !== cd) btn.style.setProperty('--cd', cd);
+    text(btn.querySelector('.cd-num'), st.seconds ? String(st.seconds) : '');
+    text(btn.querySelector('.lock-note'), st.locked ? (slot === 'skill' ? 'Niv 2' : 'Niv 3') : '');
+    text(btn.querySelector('.name'), name);
+    attr(btn, 'data-rank', String(st.rank));
+    attr(btn, 'data-state', btn.classList.contains('aiming') ? 'aiming' : st.state);
+    attr(btn, 'aria-disabled', String(st.locked || st.cooling || st.unavailable));
+    attr(btn, 'aria-label', `${name}, ${st.unavailable ? 'héros éliminé' : st.locked ? `niveau ${slot === 'skill' ? 2 : 3} requis` : st.cooling ? `recharge : ${st.seconds} secondes` : hero.cast ? 'commande en attente possible' : 'disponible'}`);
+    const symbol = btn.querySelector('.ability-icon use');
+    if (symbol) attr(symbol, 'href', `#hud-icon-${slot}-${hero.key}`);
   };
-  setSlot(els.skill, 'skill');
-  setSlot(els.ult, 'ult');
-  els.skill.querySelector('.name').textContent = hero.def.abilities.skill.name;
-  els.ult.querySelector('.name').textContent = hero.def.abilities.ult.name;
-  els.attack.dataset.rank = String(hero.rank.auto);
+  setSlot(els.skill, 'skill'); setSlot(els.ult, 'ult');
+  attr(els.attack, 'data-rank', String(hero.rank.auto));
+  attr(els.attack, 'aria-disabled', String(hero.dead));
+  els.attack.classList.toggle('unavailable', hero.dead);
   const show = (btn, on) => btn.classList.toggle('show', on);
   show(els.plusAttack, hero.points > 0 && hero.rank.auto < 3);
   show(els.plusSkill, hero.points > 0 && hero.rank.skill < 3);

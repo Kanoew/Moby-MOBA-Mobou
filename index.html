@@ -36,6 +36,7 @@
     "./src/ui/effects.js": "./src/ui/effects.js?v=0.12.0",
     "./src/ui/hud.js": "./src/ui/hud.js?v=0.12.0",
     "./src/ui/lobby.js": "./src/ui/lobby.js?v=0.12.0",
+    "./src/ui/mobile-hud.js": "./src/ui/mobile-hud.js?v=0.12.0",
     "./src/ui/profile.js": "./src/ui/profile.js?v=0.12.0",
     "./src/ui/scoreboard.js": "./src/ui/scoreboard.js?v=0.12.0",
     "./src/ui/screens.js": "./src/ui/screens.js?v=0.12.0",
@@ -121,19 +122,60 @@
     <!-- ===== PARTIE ===== -->
     <section id="screen-game" class="screen game" aria-label="Partie">
       <canvas id="game"></canvas>
+      <svg class="hud-symbols" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<symbol id="hud-icon-attack" viewBox="0 0 24 24"><path d="m4 3 10 10-3 3L2 5V2h3l11 11 3-3M10 17l7-7M4 20l4-4M17 3l4-1v4l-5 5M16 16l4 4M14 19l5-5"/></symbol>
+
+<symbol id="hud-icon-skill-yeji" viewBox="0 0 24 24"><path d="M3 18 12 3l-3 13M10 21 21 4l-5 16M3 12l4-7"/></symbol>
+
+<symbol id="hud-icon-skill-sweetie" viewBox="0 0 24 24"><path d="m4 5 7-3 7 3v6c0 5-7 10-7 10s-7-5-7-10Z"/><path d="M10 11h12m-4-4 4 4-4 4"/></symbol>
+
+<symbol id="hud-icon-skill-jennie" viewBox="0 0 24 24"><path d="M12 21V11M5 8c-5-7 9-7 7 0M12 8c-2-7 12-7 7 0M5 8c-4 8 9 9 7 0M19 8c4 8-9 9-7 0"/></symbol>
+
+<symbol id="hud-icon-ult-yeji" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="m12 1 3 5M23 12l-5 3M12 23l-3-5M1 12l5-3M5 4l6 1M20 5l-1 6M19 20l-6-1M4 19l1-6"/></symbol>
+
+<symbol id="hud-icon-ult-sweetie" viewBox="0 0 24 24"><path d="m12 2 8 4v6c0 6-8 10-8 10S4 18 4 12V6Z"/><path d="m12 6 4 2v4c0 3-4 6-4 6s-4-3-4-6V8Z"/></symbol>
+
+<symbol id="hud-icon-ult-jennie" viewBox="0 0 24 24"><path d="m3 7 4 6 5-10 5 10 4-6-2 13H5Z"/><path d="m3 15 5 2m8 0 5-2M8 4l1 5m6 0 1-5"/></symbol>
+
+<symbol id="hud-icon-shop" viewBox="0 0 24 24"><path d="M4 8h16l1 13H3ZM8 8V6a4 4 0 0 1 8 0v2"/><path d="M9 14h6m-3-3v6"/></symbol>
+
+<symbol id="hud-icon-recall" viewBox="0 0 24 24"><path d="M4 9a8 8 0 1 1-1 7M4 4v5h5"/><path d="m8 14 4-5 4 5m-4-5v9"/></symbol>
+
+<symbol id="hud-icon-scores" viewBox="0 0 24 24"><path d="M4 21V13h4v8m2 0V3h4v18m2 0V8h4v13"/></symbol>
+
+<symbol id="hud-icon-farm" viewBox="0 0 24 24"><path d="M12 3v18M5 6l7 5 7-5M5 12l7 5 7-5"/></symbol>
+
+<symbol id="hud-icon-hero" viewBox="0 0 24 24"><path d="m5 9 2-6 5 3 5-3 2 6-7 12Z"/><path d="m8 11 4 3 4-3"/></symbol>
+
+<symbol id="hud-icon-structure" viewBox="0 0 24 24"><path d="M5 21V8H3V3h4v3h3V3h4v3h3V3h4v5h-2v13ZM10 21v-6h4v6"/></symbol>
+
+<symbol id="hud-icon-stop" viewBox="0 0 24 24"><path d="M6 6h12v12H6Z"/></symbol>
+
+<symbol id="hud-icon-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v5m0 12v5M1 12h5m12 0h5"/></symbol>
+</svg>
+      <div id="mobile-hud" aria-label="Informations de partie">
+<div id="hud-minimap" aria-hidden="true"></div>
+<button id="match-summary" type="button" aria-label="Ouvrir les scores">
+<span class="summary-team ally"><b id="hud-ally-kills">● 0</b><small id="hud-ally-towers">0 tour</small></span>
+<span class="summary-clock"><b id="hud-clock">0:00</b><small id="hud-objective">Cerbère · 3:30</small></span>
+<span class="summary-team enemy"><b id="hud-enemy-kills">0 ▲</b><small id="hud-enemy-towers">0 tour</small></span></button>
+<div id="mobile-vitals" role="group" aria-label="Vie et progression du héros">
+<span id="hud-level" aria-label="Niveau">1</span><div class="vitals-info"><div class="vitals-label"><b id="hud-hero-name">—</b><span id="hud-health-text">0 / 0</span></div>
+<div class="vitals-track" role="progressbar" id="hud-health" aria-label="Points de vie" aria-valuemin="0"><span id="hud-health-fill" style="--health:.79"></span></div>
+<div class="vitals-xp" role="progressbar" id="hud-xp" aria-label="Expérience vers le prochain niveau" aria-valuemin="0" aria-valuemax="100"><span id="hud-xp-fill" style="--xp:.43"></span></div></div></div></div>
 
       <!-- Commandes tactiles (affichées sur écran tactile uniquement). Le style est dans styles/ui.css. -->
       <div id="touch" hidden>
         <div id="stick-zone"><div id="stick-base"><div id="stick-knob"></div></div></div>
         <div id="action-pad">
-          <button id="btn-ult" class="act act-ult" type="button" data-slot="ult" aria-label="Ultime">
+          <button id="btn-ult" class="act act-ult" type="button" data-slot="ult" aria-label="Ultime"><svg class="ability-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-ult-yeji"/></svg>
             <span class="key">R</span><span class="name"></span><span class="cd-num"></span><span class="lock-note"></span>
           </button>
-          <button id="btn-skill" class="act act-skill" type="button" data-slot="skill" aria-label="Compétence">
+          <button id="btn-skill" class="act act-skill" type="button" data-slot="skill" aria-label="Compétence"><svg class="ability-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-skill-yeji"/></svg>
             <span class="key">Q</span><span class="name"></span><span class="cd-num"></span><span class="lock-note"></span>
             <span class="pips" aria-hidden="true"><i></i><i></i><i></i></span>
           </button>
-          <button id="btn-attack" class="act act-attack" type="button" data-slot="attack" aria-label="Attaque">
+          <button id="btn-attack" class="act act-attack" type="button" data-slot="attack" aria-label="Attaque"><svg class="ability-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-attack"/></svg>
             <span class="name">Attaque</span>
             <span class="pips" aria-hidden="true"><i></i><i></i><i></i></span>
           </button>
@@ -144,18 +186,18 @@
 
       <!-- Lot 4 : boutons de partie, inventaire, boutique, scores. Identifiants listés dans docs/ui-guide.md. -->
       <button id="btn-cam" class="hud-btn" type="button" aria-pressed="false" aria-label="Recentrer la caméra (appui long : caméra libre)" title="Recentrer (Espace) · appui long ou Y : caméra libre"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <button id="target-toggle" class="hud-btn" type="button" aria-controls="target-controls" aria-expanded="false">Ciblage ▾</button>
+      <button id="target-toggle" class="hud-btn" type="button" aria-controls="target-controls" aria-expanded="false" aria-label="Choisir les cibles d’attaque"><svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-crosshair"/></svg><span class="hud-label">Cibles</span></button>
       <div id="target-controls" role="group" aria-label="Ciblage des attaques">
         <button class="hud-btn" data-target-mode="nearest" title="Cible proche (A)">Attaque <kbd>A</kbd></button>
-        <button class="hud-btn" data-target-mode="farm" title="Sbires et monstres uniquement (C)"><img src="assets/items/lame-courte.png" alt="">Farm <kbd>C</kbd></button>
-        <button class="hud-btn" data-target-mode="hero" title="Héros ennemis uniquement (V)">Héros <kbd>V</kbd></button>
-        <button class="hud-btn" data-target-mode="structure" title="Tours et noyau uniquement (X)">Structures <kbd>X</kbd></button>
-        <button class="hud-btn" id="btn-stop" title="Arrêter le déplacement et les attaques (S)">Stop <kbd>S</kbd></button>
+        <button class="hud-btn" data-target-mode="farm" title="Sbires et monstres uniquement (C)"><svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-farm"/></svg><span>Farm <kbd>C</kbd></span></button>
+        <button class="hud-btn" data-target-mode="hero" title="Héros ennemis uniquement (V)"><svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-hero"/></svg><span>Héros <kbd>V</kbd></span></button>
+        <button class="hud-btn" data-target-mode="structure" title="Tours et noyau uniquement (X)"><svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-structure"/></svg><span>Structures <kbd>X</kbd></span></button>
+        <button class="hud-btn" id="btn-stop" title="Arrêter le déplacement et les attaques (S)"><svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-stop"/></svg><span>Stop <kbd>S</kbd></span></button>
       </div>
       <div id="hud-buttons">
-        <button id="btn-scores" class="hud-btn" type="button">Scores</button>
-        <button id="btn-shop-open" class="hud-btn" type="button">Boutique</button>
-        <button id="btn-recall" class="hud-btn" type="button">Rappel</button>
+        <button id="btn-scores" class="hud-btn" type="button" aria-label="Scores"><svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-scores"/></svg><span class="hud-label">Scores</span></button>
+        <button id="btn-shop-open" class="hud-btn" type="button" aria-label="Boutique"><svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-shop"/></svg><span class="hud-label">Boutique</span></button>
+        <button id="btn-recall" class="hud-btn" type="button" aria-label="Rappel"><svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#hud-icon-recall"/></svg><span class="hud-label">Rappel</span></button>
       </div>
       <div id="inventory">
         <button id="inv-gold" class="gold" type="button" aria-label="Ouvrir la boutique"><i class="coin" aria-hidden="true"></i><b id="gold-val">0</b><span id="gold-gain"></span></button>

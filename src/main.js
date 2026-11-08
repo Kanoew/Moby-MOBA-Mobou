@@ -9,6 +9,7 @@ import { loadProfile, resetProfile, rewardMatch, saveProfile } from './ui/profil
 import { createUi } from './ui/screens.js';
 import { createLobbyView, LOBBY_MS } from './ui/lobby.js';
 import { attackAction, bindTouchControls, updateTouchHud } from './ui/touch.js';
+import { createMobileHud } from './ui/mobile-hud.js';
 import { createHud } from './ui/hud.js';
 import { createEffectsPreference } from './ui/effects.js';
 import { isMuted, setMuted, unlockAudio } from './ui/sound.js';
@@ -93,7 +94,8 @@ async function boot() {
   const issue = (cmd) => (game ? issueCommand(game.world, PLAYER_ID, cmd) : false);
   const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
   const effectsPreference = createEffectsPreference(localStorage, motionPreference);
-  const hud = createHud({ issue, getGame: () => game, localId: PLAYER_ID, heroDefs });
+  const hud = createHud({ issue, getGame: () => game, localId: PLAYER_ID, heroDefs, touch: touchMode });
+  const mobileHud = createMobileHud({ root: $('#mobile-hud'), canvas, enabled: touchMode, getGame: () => game, localId: PLAYER_ID, onScores: () => hud.toggleScores() });
   window.addEventListener('pointerdown', unlockAudio, { capture: true });
   window.addEventListener('keydown', unlockAudio, { capture: true });
 
@@ -118,7 +120,7 @@ async function boot() {
   function startGame(hero, picks) {
     resetCameraInput();
     const world = createWorld({ map: duel ? arena : map3v3, heroDefs, match: duel ? null : matchCfg, roster: makeRoster(hero, picks), seed });
-    const renderer = createRenderer(canvas, world, images, { touch: touchMode, localId: PLAYER_ID, getEffectsMode: effectsPreference.mode });
+    const renderer = createRenderer(canvas, world, images, { touch: touchMode, localId: PLAYER_ID, getEffectsMode: effectsPreference.mode, getMobileLayout: mobileHud.layout });
     renderer.setDebug(game ? game.renderer.isDebug() : debugOn);
     game = { world, renderer, hero, aim: null, paused: false, ended: false };
     const rendererEvents = world.onEvent;
@@ -138,6 +140,8 @@ async function boot() {
     $('#pause').hidden = true;
     $('#endcard').hidden = true;
     ui.go('game');
+    mobileHud.measure();
+    mobileHud.update();
     window.__moba = { world, renderer, issueCommand, step, getUnit, PLAYER_ID, setAim: (a) => (game.aim = a), startGame, game: () => game };
     applyOrientation();
   }
@@ -296,6 +300,7 @@ async function boot() {
       return;
     }
     if (k === 'escape') {
+      if ($('#target-controls').classList.contains('open')) { closeTargetMenu(); return; }
       if (hud.isOverlayOpen()) hud.closeAll();
       else if (game.aim) game.aim = null;
       else setPaused(!game.paused);
@@ -383,6 +388,9 @@ async function boot() {
   $('#target-toggle').addEventListener('click', () => {
     const open = $('#target-controls').classList.toggle('open');
     $('#target-toggle').setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest('#target-toggle, #target-controls')) closeTargetMenu();
   });
   $('#stick-zone').addEventListener('pointerdown', closeTargetMenu);
   $('#btn-pause').addEventListener('click', closeTargetMenu);
@@ -479,7 +487,7 @@ async function boot() {
     const aim = game.aim && (!game.world.match || p.dead || !(canCast(game.world, p, game.aim.slot) || canQueueCast(game.world, p, game.aim.slot))) ? null : game.aim;
     if (!aim) game.aim = null;
     game.renderer.draw(blocked ? 0 : dt, PLAYER_ID, aim ? (aim.fromTouch ? aim : { slot: aim.slot, x: pointer.x, y: pointer.y }) : null, alphaOf(acc, STEP_MS));
-    if (touchMode) updateTouchHud(touchEls, game.world, p);
+    if (touchMode) { updateTouchHud(touchEls, game.world, p); mobileHud.update(); }
     const cs = game.renderer.camera.state();
     camBtn.classList.toggle('free', cs.free || cs.held);
     camBtn.classList.toggle('held', cs.held);

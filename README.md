@@ -90,6 +90,16 @@ Le bouton (et la touche `A`) ne demande plus de cible : il choisit lui-même et 
 - Un déplacement, le joystick, `S`, un nouveau verrou simple, un rappel ou la mort annulent l'approche (le verrou simple reste « sans poursuite », comme le cahier §2).
 - **Exception assumée** à la règle « aucune poursuite automatique » : la poursuite n'existe que pour l'ordre explicite « Attaque » (commande `attack`), jamais pour un simple clic sur un ennemi.
 
+## HUD mobile (lot 4 du plan d'amélioration)
+
+Le HUD tactile libère le centre du combat : mini-carte en haut à gauche, score/chronomètre/objectifs dans un bandeau compact, vie/niveau/XP en bas au centre et actions circulaires à droite. Les icônes de compétence et d’ultime sont propres à chaque héros. Les anneaux montrent la progression des recharges ; les états verrouillé, disponible, en recharge, en visée et indisponible sont distincts. Les améliorations restent des cibles fixes de 44 px.
+
+Touchez le **bandeau du score** pour ouvrir les scores. **Cibles** ouvre les commandes Farm, Héros, Structures et Stop ; le gros bouton Attaque conserve le ciblage de proximité et le verrou stable existants. Une sélection ou une autre action referme le menu. Boutique et Rappel restent accessibles en haut à droite ; le bouton de caméra est sous la mini-carte. Le compteur de rappel conserve son icône et les emplacements d’inventaire ne sont plus recréés pour un simple gain d’or. Les emplacements vides sont masqués sur mobile, la boutique restant accessible par son bouton ou par l’or.
+
+Les marges sûres décalent le HUD, les commandes et le dessin de la mini-carte sans changer sa projection ou le brouillard. Les zones tactiles testées font au moins 44 px et les éléments décoratifs laissent passer les doigts. Les notifications mobiles affichent une seule ligne sous le score, hors des actions ; le retour d’élimination reste prioritaire.
+
+Les commandes PC et le HUD Canvas PC restent disponibles. Le duel conserve son HUD de vie et son attaque ; ses compétences et panneaux d’économie inactifs sont masqués ou ignorés. Une maquette HTML/CSS a précédé l’intégration : `docs/mockups/mobile-hud.html` (`?state=cooling`, `locked`, `aiming`, et `&points=1`). Détail des fichiers et vérifications : `docs/mobile-hud-validation.md`.
+
 ## Effets de combat (lot 3 du plan d'amélioration)
 
 Les impacts réels déclenchent un flash de sprite bref, des éclats de lame ou des particules magiques et des chiffres lisibles. Les coups très rapprochés sont regroupés pendant 90 ms ; une absorption complète affiche « Absorbé » sans faux impact. Yeji et Sweetie conservent leurs attaques immobiles : une traînée accompagne seulement leur fenêtre d’impact. Leurs dashs ont un sillage distinct, sans modification des déplacements ou des dégâts. Les ultimes gardent leurs planches et reçoivent des anneaux de lancement/activation ; les ronces ont leur retour d’impact à l’armement réel.
