@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Moby MOBA — Maquette HUD mobile</title>
+<link rel="stylesheet" href="../../styles/ui.css">
+<style>#app {width:100%;height:100%}.game{display:block!important}.mock-arena{position:absolute;inset:0;background:linear-gradient(110deg,#07171b55,#06131d55),url('../../assets/ui/arena-dusk.svg') center/cover}.mock-hero{position:absolute;left:45%;top:35%;background-image:url('../../assets/yeji/companion.png');transform:scale(.9)}.mock-map{position:absolute;top:12px;left:12px;width:108px;height:61px;border:9px solid #537274;border-radius:25%;box-shadow:inset 0 0 0 14px #102830}.mock-map:after{content:'●';color:#58dadd;position:absolute;left:20px;top:15px;font-size:10px}</style>
+</head>
+<body class="touch">
+<div id="app">
+<section id="screen-game" class="screen game">
+<div class="mock-arena">
+</div>
+<div class="portrait mock-hero">
+</div>
+<svg class="hud-symbols" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<symbol id="hud-icon-attack" viewBox="0 0 24 24">
+<path d="m4 3 10 10-3 3L2 5V2h3l11 11 3-3M10 17l7-7M4 20l4-4M17 3l4-1v4l-5 5M16 16l4 4M14 19l5-5"/>
+</symbol>
+<symbol id="hud-icon-skill-yeji" viewBox="0 0 24 24">
+<path d="M3 18 12 3l-3 13M10 21 21 4l-5 16M3 12l4-7"/>
+</symbol>
+<symbol id="hud-icon-skill-sweetie" viewBox="0 0 24 24">
+<path d="m4 5 7-3 7 3v6c0 5-7 10-7 10s-7-5-7-10Z"/>
+<path d="M10 11h12m-4-4 4 4-4 4"/>
+</symbol>
+<symbol id="hud-icon-skill-jennie" viewBox="0 0 24 24">
+<path d="M12 21V11M5 8c-5-7 9-7 7 0M12 8c-2-7 12-7 7 0M5 8c-4 8 9 9 7 0M19 8c4 8-9 9-7 0"/>
+</symbol>
+<symbol id="hud-icon-ult-yeji" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="7"/>
+<path d="m12 1 3 5M23 12l-5 3M12 23l-3-5M1 12l5-3M5 4l6 1M20 5l-1 6M19 20l-6-1M4 19l1-6"/>
+</symbol>
+<symbol id="hud-icon-ult-sweetie" viewBox="0 0 24 24">
+<path d="m12 2 8 4v6c0 6-8 10-8 10S4 18 4 12V6Z"/>
+<path d="m12 6 4 2v4c0 3-4 6-4 6s-4-3-4-6V8Z"/>
+</symbol>
+<symbol id="hud-icon-ult-jennie" viewBox="0 0 24 24">
+<path d="m3 7 4 6 5-10 5 10 4-6-2 13H5Z"/>
+<path d="m3 15 5 2m8 0 5-2M8 4l1 5m6 0 1-5"/>
+</symbol>
+<symbol id="hud-icon-shop" viewBox="0 0 24 24">
+<path d="M4 8h16l1 13H3ZM8 8V6a4 4 0 0 1 8 0v2"/>
+<path d="M9 14h6m-3-3v6"/>
+</symbol>
+<symbol id="hud-icon-recall" viewBox="0 0 24 24">
+<path d="M4 9a8 8 0 1 1-1 7M4 4v5h5"/>
+<path d="m8 14 4-5 4 5m-4-5v9"/>
+</symbol>
+<symbol id="hud-icon-scores" viewBox="0 0 24 24">
+<path d="M4 21V13h4v8m2 0V3h4v18m2 0V8h4v13"/>
+</symbol>
+<symbol id="hud-icon-farm" viewBox="0 0 24 24">
+<path d="M12 3v18M5 6l7 5 7-5M5 12l7 5 7-5"/>
+</symbol>
+<symbol id="hud-icon-hero" viewBox="0 0 24 24">
+<path d="m5 9 2-6 5 3 5-3 2 6-7 12Z"/>
+<path d="m8 11 4 3 4-3"/>
+</symbol>
+<symbol id="hud-icon-structure" viewBox="0 0 24 24">
+<path d="M5 21V8H3V3h4v3h3V3h4v3h3V3h4v5h-2v13ZM10 21v-6h4v6"/>
+</symbol>
+<symbol id="hud-icon-stop" viewBox="0 0 24 24">
+<path d="M6 6h12v12H6Z"/>
+</symbol>
+<symbol id="hud-icon-crosshair" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="7"/>
+<circle cx="12" cy="12" r="2"/>
+<path d="M12 1v5m0 12v5M1 12h5m12 0h5"/>
+</symbol>
+</svg>
+<div id="mobile-hud" aria-label="Informations de partie">
+<div id="hud-minimap" aria-hidden="true">
+</div>
+<button id="match-summary" type="button" aria-label="Ouvrir les scores">
+<span class="summary-team ally">
+<b id="hud-ally-kills">● 3</b>
+<small id="hud-ally-towers">1 tour</small>
+</span>
+<span class="summary-clock">
+<b id="hud-clock">2:36</b>
+<small id="hud-objective">Cerbère · 0:54</small>
+</span>
+<span class="summary-team enemy">
+<b id="hud-enemy-kills">2 ▲</b>
+<small id="hud-enemy-towers">0 tour</small>
+</span>
+</button>
+<div id="mobile-vitals" role="group" aria-label="Vie et progression du héros">
+<span id="hud-level" aria-label="Niveau">5</span>
+<div class="vitals-info">
+<div class="vitals-label">
+<b id="hud-hero-name">Yeji</b>
+<span id="hud-health-text">712 / 896</span>
+</div>
+<div class="vitals-track" role="progressbar" id="hud-health" aria-label="Points de vie" aria-valuemin="0">
+<span id="hud-health-fill" style="--health:.79">
+</span>
+</div>
+<div class="vitals-xp" role="progressbar" id="hud-xp" aria-label="Expérience vers le prochain niveau" aria-valuemin="0" aria-valuemax="100">
+<span id="hud-xp-fill" style="--xp:.43">
+</span>
+</div>
+</div>
+</div>
+</div>
+<div id="touch">
+<div id="stick-zone">
+<div id="stick-base" class="on" style="left:100px;top:130px">
+<div id="stick-knob">
+</div>
+</div>
+</div>
+<div id="action-pad">
+<button id="btn-ult" class="act act-ult ready" data-rank="2" aria-label="Cercle des lames">
+<svg class="ability-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-ult-yeji"/>
+</svg>
+<span class="key">R</span>
+<span class="name">Cercle des lames</span>
+<span class="cd-num">
+</span>
+<span class="lock-note">
+</span>
+<span class="pips">
+<i>
+</i>
+<i>
+</i>
+<i>
+</i>
+</span>
+</button>
+<button id="btn-skill" class="act act-skill ready" data-rank="2" aria-label="Coupe éclair">
+<svg class="ability-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-skill-yeji"/>
+</svg>
+<span class="key">Q</span>
+<span class="name">Coupe éclair</span>
+<span class="cd-num">
+</span>
+<span class="lock-note">
+</span>
+<span class="pips">
+<i>
+</i>
+<i>
+</i>
+<i>
+</i>
+</span>
+</button>
+<button id="btn-attack" class="act act-attack ready" data-rank="2" aria-label="Attaque">
+<svg class="ability-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-attack"/>
+</svg>
+<span class="key">A</span>
+<span class="name">Attaque</span>
+<span class="cd-num">
+</span>
+<span class="lock-note">
+</span>
+<span class="pips">
+<i>
+</i>
+<i>
+</i>
+<i>
+</i>
+</span>
+</button>
+<button id="plus-attack" class="plus plus-attack" aria-label="Améliorer l’attaque">+</button>
+<button id="plus-skill" class="plus plus-skill" aria-label="Améliorer la compétence">+</button>
+</div>
+</div>
+<button id="btn-cam" class="hud-btn" aria-label="Recentrer">
+<svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-crosshair"/>
+</svg>
+</button>
+<button id="target-toggle" class="hud-btn" aria-controls="target-controls" aria-expanded="false">
+<svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-crosshair"/>
+</svg>
+<span class="hud-label">Cibles</span>
+</button>
+<div id="target-controls">
+<button class="hud-btn" data-target-mode="nearest">
+<svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-crosshair"/>
+</svg>
+<span>Attaque</span>
+</button>
+<button class="hud-btn" data-target-mode="farm">
+<svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-farm"/>
+</svg>
+<span>Farm</span>
+</button>
+<button class="hud-btn" data-target-mode="hero">
+<svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-hero"/>
+</svg>
+<span>Héros</span>
+</button>
+<button class="hud-btn" data-target-mode="structure">
+<svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-structure"/>
+</svg>
+<span>Structures</span>
+</button>
+<button class="hud-btn" id="btn-stop">
+<svg class="target-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-stop"/>
+</svg>
+<span>Stop</span>
+</button>
+</div>
+<div id="hud-buttons">
+<button id="btn-scores" class="hud-btn">
+<svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-scores"/>
+</svg>
+<span class="hud-label">Scores</span>
+</button>
+<button id="btn-shop-open" class="hud-btn">
+<svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-shop"/>
+</svg>
+<span class="hud-label">Boutique</span>
+</button>
+<button id="btn-recall" class="hud-btn">
+<svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<use href="#hud-icon-recall"/>
+</svg>
+<span class="hud-label">Rappel</span>
+</button>
+</div>
+<button id="btn-pause" class="icon-btn" aria-label="Pause">❚❚</button>
+<div class="mock-map">
+</div>
+<div id="inventory">
+<button id="inv-gold" class="gold">
+<i class="coin">
+</i>
+<b id="gold-val">780</b>
+</button>
+<div class="slots">
+<button class="slot on">
+<img src="../../assets/items/lame-courte.png" alt="Lame courte">
+</button>
+</div>
+</div>
+</section>
+</div>
+<script>const p=new URLSearchParams(location.search),b=document.querySelector('#btn-skill'),state=p.get('state');if(state){b.classList.remove('ready');b.classList.add(state);if(state==='cooling'){b.style.setProperty('--cd','.62');b.querySelector('.cd-num').textContent='3'}if(state==='locked')b.querySelector('.lock-note').textContent='Niv 2'}document.querySelector('#target-toggle').onclick=()=>{const el=document.querySelector('#target-controls');el.classList.toggle('open');document.querySelector('#target-toggle').setAttribute('aria-expanded',el.classList.contains('open'))};if(p.has('points'))document.querySelectorAll('.plus').forEach(b=>b.classList.add('show'));</script>
+</body>
+</html>
