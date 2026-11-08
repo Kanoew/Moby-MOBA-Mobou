@@ -7,6 +7,7 @@ import { directionFromFacing, frameAt, pickSprite } from './animator.js';
 import { cooldownLeft } from '../sim/abilities.js';
 import { xpToNext } from '../sim/progression.js';
 import { createCamera } from './camera.js';
+import { applyInterpolation } from './interp.js';
 
 const COLORS = {
   ally: '#34d3e8',
@@ -1183,7 +1184,17 @@ export function createRenderer(canvas, world, images, opts = {}) {
 
   /* -------------------------------- dessin -------------------------------- */
 
-  function draw(dtMs, localId, aim) {
+  function draw(dtMs, localId, aim, alpha = 1) {
+    // Positions interpolées entre deux pas de simulation, uniquement pendant le dessin (voir interp.js).
+    const restore = applyInterpolation(world, alpha);
+    try {
+      drawFrame(dtMs, localId, aim);
+    } finally {
+      restore();
+    }
+  }
+
+  function drawFrame(dtMs, localId, aim) {
     localId_ = localId;
     const { scale, ox, oy } = view(localId, dtMs, aim);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
