@@ -1,6 +1,6 @@
 // Rendu canvas : lit l'état de simulation, ne le modifie jamais.
 // Les sbires, tours et noyaux sont dessinés de façon procédurale (aucun sprite fourni pour l'instant).
-import { VISION_RADII, pointVisibleTo, unitVisibleTo, visionSources } from '../sim/vision.js';
+import { VISION_RADII, visionSources } from '../sim/vision.js';
 import { play } from '../ui/sound.js';
 import { edgeDistance, getUnit, isVulnerable } from '../sim/world.js';
 import { directionFromFacing, frameAt, pickSprite } from './animator.js';
@@ -81,7 +81,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
   let introBeat = null;
   let reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const combatEffects = createCombatEffects(world, { localId: opts.localId ?? 'player', onSound: play, mode: opts.getEffectsMode?.() ?? (reducedMotion ? 'light' : 'full') });
-  const visible = (u) => unitVisibleTo(world, u, localTeamOf());
+  const visible = (u) => combatEffects.visibleAtDraw(u);
   let debug = false;
   let cam = { x: world.map.width / 2, y: world.map.height / 2 };
   const camera = createCamera();
@@ -466,6 +466,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
     const probe = pickSprite(hero, 0, combat, extra);
     const clock = animClock(hero, probe.kind);
     const s = pickSprite(hero, clock, combat, extra);
+    combatEffects.drawEcho(ctx, hero, s, images[s.sheet]);
     ctx.save();
     ctx.translate(hero.x, hero.y);
     if (s.flip) ctx.scale(-1, 1);
@@ -655,7 +656,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
       ctx.beginPath();
       ctx.ellipse(c.x, c.y, 60, 34, 0, 0, Math.PI * 2);
       ctx.stroke();
-      if (c.respawnAt !== null && pointVisibleTo(world, localTeamOf(), c.x, c.y)) {
+      if (c.respawnAt !== null && combatEffects.pointVisibleAtDraw(c.x, c.y)) {
         ctx.setLineDash([]);
         ctx.fillStyle = 'rgba(230,200,255,0.8)';
         ctx.font = '600 20px system-ui, sans-serif';
@@ -764,6 +765,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
   function drawProjectile(p, localTeam) {
     const owner = getUnit(world, p.ownerId);
     const proj = owner && owner.kind === 'hero' ? owner.def.sprites.attack.projectile : null;
+    combatEffects.drawProjectile(ctx, p, proj ? 80 : p.ownerKind === 'tower' ? 110 : 40);
     ctx.save();
     if (proj) {
       const atk = owner.def.sprites.attack;
@@ -1121,7 +1123,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
       ctx.stroke();
     }
     ctx.drawImage(fog, 0, 0, mw, mh);
-    const seen = (e) => unitVisibleTo(world, e, localTeam);
+    const seen = combatEffects.visibleAtDraw;
     for (const e of world.units) {
       if (e.dead || !seen(e)) continue;
       const c = teamColor(e.team, localTeam);
@@ -1228,7 +1230,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
     combatEffects.configure(mode);
     reducedMotion = mode === 'light';
     if (reducedMotion) sparks.length = 0;
-    combatEffects.advance(dtMs);
+    combatEffects.advance(dtMs, getUnit(world, localId)?.team ?? localTeamOf());
     // Positions interpolées entre deux pas de simulation, uniquement pendant le dessin (voir interp.js).
     const restore = applyInterpolation(world, alpha);
     try {
@@ -1259,7 +1261,7 @@ export function createRenderer(canvas, world, images, opts = {}) {
     drawGround();
     if (world.match) drawJungle();
     if (matchMode) ctx.drawImage(fog, 0, 0, world.map.width, world.map.height);
-    for (const z of world.zones) if (z.team === localTeamOf() || pointVisibleTo(world, localTeamOf(), z.x, z.y)) zoneImageBack(z);
+    for (const z of world.zones) if (z.team === localTeamOf() || combatEffects.pointVisibleAtDraw(z.x, z.y)) { zoneImageBack(z); combatEffects.drawZone(ctx, z); }
 
     const local = getUnit(world, localId);
     const localTeam = local ? local.team : 'ally';
@@ -1272,8 +1274,8 @@ export function createRenderer(canvas, world, images, opts = {}) {
       else if (e.kind === 'minion' || e.kind === 'monster') drawCreature(e, localTeam);
       else drawStructure(e, localTeam);
     }
-    for (const z of world.zones) if (z.team === localTeam || pointVisibleTo(world, localTeam, z.x, z.y)) zoneImageFront(z);
-    for (const p of world.projectiles) if (pointVisibleTo(world, localTeam, p.x, p.y)) drawProjectile(p, localTeam);
+    for (const z of world.zones) if (z.team === localTeam || combatEffects.pointVisibleAtDraw(z.x, z.y)) zoneImageFront(z);
+    for (const p of world.projectiles) if (combatEffects.pointVisibleAtDraw(p.x, p.y)) drawProjectile(p, localTeam);
     for (const e of world.units) if (visible(e)) drawBars(e, localTeam);
     combatEffects.draw(ctx);
     drawSparks(dtMs);

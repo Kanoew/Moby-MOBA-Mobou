@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createWorld, issueCommand, step } from '../src/sim/world.js';
 import { gainXp } from '../src/sim/progression.js';
-import { createCombatEffects, FX_LIMITS } from '../src/render/combat-fx.js';
+import { createCombatEffects, dashFeedbackActive, FX_LIMITS } from '../src/render/combat-fx.js';
 import { createEffectsPreference } from '../src/ui/effects.js';
 const load = (name) => JSON.parse(readFileSync(new URL(`../data/${name}.json`, import.meta.url)));
 function setup(hero = 'yeji', mode = 'full') {
@@ -93,6 +93,8 @@ test('effets : budgets bornés et passage immédiat en mode allégé', () => {
 test('effets : secousses courtes et plafonnées, supprimées en mode allégé', () => {
   const { p, target, fx, damage, world } = setup();
   fx.onEvent({ type: 'ability_hit', heroId: p.id, targetId: target.id, slot: 'skill', t: world.time }); damage();
+  fx.advance(30); assert.deepEqual(fx.shake(), { x: 0, y: 0 });
+  damage(target.maxHp * 0.3);
   fx.advance(30); assert.ok(Math.abs(fx.shake().x) > 0); assert.ok(Math.abs(fx.shake().x) <= 2.5);
   fx.configure('light'); assert.deepEqual(fx.shake(), { x: 0, y: 0 });
 });
@@ -167,4 +169,62 @@ test('effets : activation réelle des ultimes et impact retardé des ronces', ()
     if (hero === 'yeji') assert.ok(target.slow);
     if (hero === 'jennie') { assert.ok(target.hp < hp); assert.ok(fx.stats().numbers > 0); assert.ok(sounds.includes('hit_magic')); }
   }
+});
+
+test('contours : rayon réel, durée et préparation des ronces, camps différenciés sans modifier la zone', () => {
+  const { world, fx } = setup('jennie');
+  const z = { team: 'enemy', x: 1450, y: 300, radius: 230, startAt: 6000, armAt: 6600, endAt: 9600 };
+  const before = JSON.stringify(z), arcs = [], dashes = [], d = drawing();
+  d.ctx.arc = (...args) => arcs.push(args); d.ctx.setLineDash = (v) => dashes.push(v);
+  fx.drawZone(d.ctx, z); assert.deepEqual(arcs[0].slice(0, 3), [1450, 300, 230]);
+  assert.deepEqual(d.text, ['! 0.6 s']); assert.deepEqual(dashes[0], [5, 9]);
+  world.time = 6600; fx.advance(0); fx.drawZone(d.ctx, z);
+  assert.equal(d.text.at(-1), '3.0 s'); assert.deepEqual(dashes.at(-2), [14, 10]);
+  z.team = 'ally'; fx.drawZone(d.ctx, z); assert.deepEqual(dashes.at(-2), []);
+  z.team = 'enemy'; assert.equal(JSON.stringify(z), before);
+  fx.configure('light'); const light = drawing(), lightArcs = [];
+  light.ctx.arc = (...args) => lightArcs.push(args); fx.drawZone(light.ctx, z);
+  assert.equal(lightArcs.length, 1); assert.equal(light.text[0], '3.0 s');
+  world.time = z.endAt; fx.drawZone(light.ctx, z); assert.equal(lightArcs.length, 1);
+});
+
+test('vision de rendu : mêmes limites et camps que la simulation, sources renouvelées à chaque image', async () => {
+  const { unitVisibleTo, pointVisibleTo } = await import('../src/sim/vision.js');
+  const { world, p, target, fx } = setup();
+  for (const team of ['ally', 'enemy', 'neutral']) {
+    for (const invisible of [false, true]) {
+      target.invisible = invisible;
+      for (const dead of [false, true]) {
+        p.dead = dead; fx.advance(0, team);
+        for (const u of world.units) assert.equal(fx.visibleAtDraw(u), unitVisibleTo(world, u, team));
+        for (const x of [p.x + 750, p.x + 751, 3000]) assert.equal(fx.pointVisibleAtDraw(x, p.y), pointVisibleTo(world, team, x, p.y));
+      }
+    }
+  }
+  const hidden = drawing(); fx.advance(0, 'ally');
+  fx.drawZone(hidden.ctx, { team: 'enemy', x: 3000, y: 900, radius: 230, startAt: 6000, armAt: 6600, endAt: 9600 });
+  fx.drawProjectile(hidden.ctx, { x: 3000, y: 900, dir: { x: 1, y: 0 }, team: 'enemy' }, 80);
+  assert.deepEqual(hidden.strokes, []); assert.deepEqual(hidden.text, []);
+});
+
+test('dash : écho seulement pendant les segments mobiles, jamais après collision ni en mode allégé', () => {
+  for (const hero of ['yeji', 'sweetie']) {
+    const { p, fx } = setup(hero), curve = p.def.abilities.skill.movementCurve;
+    p.cast = { ab: p.def.abilities.skill, t: 0, start: { x: p.x - 70, y: p.y } };
+    assert.equal(dashFeedbackActive(p), false);
+    p.cast.t = (curve[1][0] + curve[2][0]) / 2; assert.equal(dashFeedbackActive(p), true);
+    let draws = 0; const d = drawing(); d.ctx.drawImage = () => draws++;
+    const sprite = { sx: 0, sy: 0, sw: 32, sh: 32, anchor: [16, 32], scale: 1 };
+    fx.drawEcho(d.ctx, p, sprite, {}); assert.equal(draws, 1);
+    fx.configure('light'); fx.drawEcho(d.ctx, p, sprite, {}); assert.equal(draws, 1);
+    p.cast.stopped = true; assert.equal(dashFeedbackActive(p), false);
+    p.cast.stopped = false; p.cast.t = curve.at(-2)[0]; assert.equal(dashFeedbackActive(p), false);
+  }
+});
+
+test('projectiles : halo essentiel en mode allégé, traînée décorative uniquement en mode complet', () => {
+  const { fx } = setup('jennie');
+  const p = { x: 1500, y: 300, team: 'ally', dir: { x: 1, y: 0 } };
+  const full = drawing(); fx.drawProjectile(full.ctx, p, 80); assert.equal(full.strokes.length, 2);
+  fx.configure('light'); const light = drawing(); fx.drawProjectile(light.ctx, p, 80); assert.equal(light.strokes.length, 1);
 });
