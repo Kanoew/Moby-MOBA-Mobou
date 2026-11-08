@@ -4,6 +4,7 @@ import { canCast, canQueueCast } from './sim/abilities.js';
 import { gainXp } from './sim/progression.js';
 import { collectImagePaths, createRenderer, loadImages } from './render/renderer.js';
 import { bindPointer, commandForPoint } from './input/pointer.js';
+import { alphaOf, snapshot } from './render/interp.js';
 import { loadProfile, resetProfile, rewardMatch, saveProfile } from './ui/profile.js';
 import { createUi } from './ui/screens.js';
 import { createLobbyView, LOBBY_MS } from './ui/lobby.js';
@@ -420,6 +421,7 @@ async function boot() {
     if (!blocked) {
       acc += dt * speed;
       while (acc >= STEP_MS) {
+        snapshot(game.world); // position précédente de chaque unité, pour l'interpolation du rendu
         for (const h of game.world.heroes) if (h.controller === 'bot') updateBot(game.world, h, STEP_MS);
         step(game.world, STEP_MS);
         acc -= STEP_MS;
@@ -432,7 +434,7 @@ async function boot() {
     }
     const aim = game.aim && (!game.world.match || p.dead || !(canCast(game.world, p, game.aim.slot) || canQueueCast(game.world, p, game.aim.slot))) ? null : game.aim;
     if (!aim) game.aim = null;
-    game.renderer.draw(blocked ? 0 : dt, PLAYER_ID, aim ? (aim.fromTouch ? aim : { slot: aim.slot, x: pointer.x, y: pointer.y }) : null);
+    game.renderer.draw(blocked ? 0 : dt, PLAYER_ID, aim ? (aim.fromTouch ? aim : { slot: aim.slot, x: pointer.x, y: pointer.y }) : null, alphaOf(acc, STEP_MS));
     if (touchMode) updateTouchHud(touchEls, game.world, p);
     const cs = game.renderer.camera.state();
     camBtn.classList.toggle('free', cs.free || cs.held);

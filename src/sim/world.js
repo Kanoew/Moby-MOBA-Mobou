@@ -914,13 +914,49 @@ function approachStep(world, hero, t, dtMs) {
   } else hero.stuckMs = 0;
 }
 
+// Glissement le long d'un mur au joystick : contre un obstacle plat, la projection pure sur le mur faisait perdre presque
+// toute la vitesse sous un biais faible (3° : 5 % de la vitesse, 10° : 32 %), d'où l'impression de « coller » aux murs.
+// Le héros garde au moins SLIDE_MIN de sa vitesse le long de l'obstacle, sauf s'il pousse presque exactement de face
+// (moins de ≈ 3°) : il s'arrête alors, comme dans tout MOBA. Ne concerne que le joystick (les clics passent par A*).
+export const SLIDE_MIN = 0.75;
+export const SLIDE_MIN_SIN = 0.05;
+
+function slideAlongObstacle(world, hero, x0, y0, tx, ty, s) {
+  const px = hero.x - tx;
+  const py = hero.y - ty;
+  const pl = Math.hypot(px, py);
+  if (pl < 0.01) return; // aucun obstacle n'a corrigé le pas
+  const want = SLIDE_MIN * s;
+  const moved = Math.hypot(hero.x - x0, hero.y - y0);
+  if (moved >= want) return;
+  const nx = -px / pl; // normale, orientée vers l'obstacle
+  const ny = -py / pl;
+  let tx2 = -ny;
+  let ty2 = nx;
+  const dot = tx2 * hero.steer.x + ty2 * hero.steer.y;
+  if (Math.abs(dot) < SLIDE_MIN_SIN) return; // de face : arrêt
+  if (dot < 0) {
+    tx2 = -tx2;
+    ty2 = -ty2;
+  }
+  const extra = want - moved;
+  hero.x += tx2 * extra;
+  hero.y += ty2 * extra;
+  pushOutOfObstacles(world, hero);
+}
+
 function steerHero(world, hero, dtMs) {
   const s = effectiveSpeed(world, hero) * dtMs / 1000;
-  hero.x += hero.steer.x * s;
-  hero.y += hero.steer.y * s;
+  const x0 = hero.x;
+  const y0 = hero.y;
+  const tx = x0 + hero.steer.x * s;
+  const ty = y0 + hero.steer.y * s;
+  hero.x = tx;
+  hero.y = ty;
   hero.walking = true;
   face(hero, hero.x + hero.steer.x, hero.y + hero.steer.y);
   pushOutOfObstacles(world, hero);
+  slideAlongObstacle(world, hero, x0, y0, tx, ty, s);
 }
 
 function moveHero(world, hero, dtMs) {

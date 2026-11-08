@@ -14,6 +14,41 @@ export function stickVector(dx, dy, radius = STICK_RADIUS, dead = STICK_DEAD) {
   return { x: dx / len, y: dy / len };
 }
 
+export const STICK_RELEASE = 0.12; // le joystick déjà engagé ne se relâche que sous cette fraction du rayon (hystérésis)
+export const STICK_MIN_TURN = 0.02; // rad (≈ 1°) : en dessous, une nouvelle direction n'est pas renvoyée à la simulation
+
+/**
+ * Filtre du joystick. Deux défauts évités :
+ *  - un pouce qui tremble autour du seuil de la zone morte faisait alterner « bouge » et « immobile » : chaque alternance
+ *    pouvait annuler un coup avant son impact. Le seuil d'engagement (18 %) est donc plus haut que le seuil de relâchement (12 %) ;
+ *  - la même direction était renvoyée à chaque événement du doigt : on ne renvoie que ce qui change.
+ * `update(dx, dy)` renvoie { send, vector } : `send` vrai = envoyer `vector` (null = relâché) à la simulation.
+ */
+export function createStickFilter({ radius = STICK_RADIUS, dead = STICK_DEAD, release = STICK_RELEASE, minTurn = STICK_MIN_TURN } = {}) {
+  let on = false;
+  let last = null;
+  return {
+    update(dx, dy) {
+      const len = Math.hypot(dx, dy);
+      on = on ? len >= radius * release : len >= radius * dead;
+      if (!on) {
+        const send = last !== null;
+        last = null;
+        return { send, vector: null };
+      }
+      const v = { x: dx / len, y: dy / len };
+      if (last && Math.acos(Math.min(1, Math.max(-1, v.x * last.x + v.y * last.y))) < minTurn) return { send: false, vector: last };
+      last = v;
+      return { send: true, vector: v };
+    },
+    reset() {
+      on = false;
+      last = null;
+    },
+    engaged: () => on,
+  };
+}
+
 /** Direction de visée pour une compétence glissée depuis son bouton ; null = appui simple. */
 export function aimFromDrag(dx, dy, minDrag = AIM_MIN_DRAG) {
   const len = Math.hypot(dx, dy);
@@ -98,14 +133,16 @@ export function bindTouchControls(els, api) {
   // --- Joystick flottant : apparaît là où le pouce se pose dans la zone de gauche ---
   let stickId = null;
   let origin = null;
+  const stickFilter = createStickFilter();
   const sendStick = (dx, dy) => {
-    const v = stickVector(dx, dy);
-    api.issue(v ? { type: 'steer', x: v.x, y: v.y } : { type: 'steer', x: 0, y: 0 });
+    const r = stickFilter.update(dx, dy);
+    if (r.send) api.issue(r.vector ? { type: 'steer', x: r.vector.x, y: r.vector.y } : { type: 'steer', x: 0, y: 0 });
   };
   els.zone.addEventListener('pointerdown', (e) => {
     if (stickId !== null || !api.enabled()) return;
     e.preventDefault();
     stickId = e.pointerId;
+    stickFilter.reset();
     capture(els.zone, e.pointerId);
     const r = els.zone.getBoundingClientRect();
     origin = { x: e.clientX, y: e.clientY };
@@ -129,6 +166,7 @@ export function bindTouchControls(els, api) {
   const release = (e) => {
     if (e.pointerId !== stickId) return;
     stickId = null;
+    stickFilter.reset();
     els.base.classList.remove('on');
     api.issue({ type: 'steer', x: 0, y: 0 });
   };

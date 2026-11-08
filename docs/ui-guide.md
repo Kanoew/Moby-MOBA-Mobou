@@ -92,3 +92,8 @@ Bouton rond de 44 px, sous la mini-carte à gauche (hors du joystick), masqué d
 `src/sim/vision.js` centralise les sources et les portées partagées. Le rendu réutilise le même masque à bord doux pour le terrain et la mini-carte. Toute nouvelle unité, barre ou indication dynamique doit passer par cette visibilité avant affichage ; conserver le brouillard dans le ciblage souris/tactile et les décisions des bots. Les monstres neutres gardent leur riposte et leur laisse.
 
 Pour les gains ponctuels (hors `source: 'passive'`), l'événement `gold` porte le montant et les coordonnées du bénéficiaire au moment du gain. Il alimente le HUD, les chiffres et pièces du canvas et le son local, y compris après revente. Les effets restent purement visuels : ils ne retardent ni le crédit d'or ni les commandes. `move_order` confirme la destination calculée par le pathfinding. Les effets respectent pause et mouvement réduit ; le son est déverrouillé au premier appui souris, tactile ou clavier.
+
+## Joystick et rendu (lot 2)
+
+- Le joystick passe par `createStickFilter` (hystérésis de zone morte) : ne pas rebrancher `stickVector` directement sur `steer`, sinon un pouce qui tremble annule des coups.
+- Le rendu dessine des positions interpolées pendant `renderer.draw(dt, localId, aim, alpha)` uniquement. Tout code de dessin doit lire `unit.x` / `unit.y` dans cette fonction (elles y sont lissées) ; tout code d'entrée ou de simulation lit les positions réelles. Un nouveau module `src/render/` ou `src/ui/` ne doit jamais stocker une position lue pendant le dessin.
