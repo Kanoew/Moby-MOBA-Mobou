@@ -93,13 +93,27 @@ export function createTapDrag(slopPx = 10) {
  * `opts.onPan(dxCssPx, dyCssPx)` et `opts.onPanEnd()` reçoivent le glissé ; sans eux, le comportement d'origine est conservé.
  */
 export function bindPointer(canvas, getWorldPoint, onCommandAt, opts = {}) {
-  const { onPan, onPanEnd, isHudHit, slopPx = 10 } = opts;
+  const { onPan, onPanEnd, isHudHit, canPan = () => true, enabled = () => true, slopPx = 10 } = opts;
   const tracker = createTapDrag(slopPx);
   let middleId = null;
   let middleLast = null;
+  let touchId = null;
+  const releaseCapture = (id) => {
+    try { if (id !== null && canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id); } catch { /* déjà perdu */ }
+  };
+  const cancel = () => {
+    const hadPan = middleId !== null || tracker.isDragging();
+    const oldMiddle = middleId, oldTouch = touchId;
+    middleId = touchId = null;
+    if (oldTouch !== null) tracker.up(oldTouch);
+    releaseCapture(oldMiddle);
+    releaseCapture(oldTouch);
+    if (hadPan && onPanEnd) onPanEnd();
+  };
 
   canvas.addEventListener('pointerdown', (e) => {
-    if (onPan && e.button === 1) {
+    if (!enabled()) return;
+    if (onPan && canPan() && e.button === 1) {
       e.preventDefault();
       middleId = e.pointerId;
       middleLast = { x: e.clientX, y: e.clientY };
@@ -108,9 +122,10 @@ export function bindPointer(canvas, getWorldPoint, onCommandAt, opts = {}) {
     }
     if (e.button !== undefined && e.button > 0) return;
     e.preventDefault();
-    const deferred = onPan && e.pointerType === 'touch' && !(isHudHit && isHudHit(e));
+    const deferred = onPan && canPan() && e.pointerType === 'touch' && !(isHudHit && isHudHit(e));
     if (deferred) {
       if (tracker.down(e.pointerId, e.clientX, e.clientY)) {
+        touchId = e.pointerId;
         try { canvas.setPointerCapture(e.pointerId); } catch { /* sans effet */ }
       }
       return;
@@ -119,6 +134,7 @@ export function bindPointer(canvas, getWorldPoint, onCommandAt, opts = {}) {
     onCommandAt(p.x, p.y, e);
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (!enabled() || !canPan()) { cancel(); return; }
     if (e.pointerId === middleId) {
       onPan(e.clientX - middleLast.x, e.clientY - middleLast.y);
       middleLast = { x: e.clientX, y: e.clientY };
@@ -130,18 +146,23 @@ export function bindPointer(canvas, getWorldPoint, onCommandAt, opts = {}) {
   const end = (e, cancelled) => {
     if (e.pointerId === middleId) {
       middleId = null;
+      releaseCapture(e.pointerId);
       if (onPanEnd) onPanEnd();
       return;
     }
     const r = tracker.up(e.pointerId);
+    if (r) touchId = null;
+    releaseCapture(e.pointerId);
     if (r === 'drag') {
       if (onPanEnd) onPanEnd();
-    } else if (r === 'tap' && !cancelled) {
+    } else if (r === 'tap' && !cancelled && enabled()) {
       const p = getWorldPoint(e.clientX, e.clientY);
       onCommandAt(p.x, p.y, e);
     }
   };
   canvas.addEventListener('pointerup', (e) => end(e, false));
   canvas.addEventListener('pointercancel', (e) => end(e, true));
+  canvas.addEventListener('lostpointercapture', (e) => end(e, true));
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  return { cancel };
 }

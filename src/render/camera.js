@@ -40,6 +40,9 @@ export function createCamera(opts = {}) {
     held: false,
     idleMs: 0,
     boostMs: 0,
+    anchorX: null,
+    anchorY: null,
+    snap: false,
   };
 
   /** Bornes de la caméra : le cadre reste dans la carte (centré si la carte est plus petite que l'écran). */
@@ -71,6 +74,14 @@ export function createCamera(opts = {}) {
       const baseX = hero.x;
       const baseY = hero.y - cfg.yOffset;
 
+      const followX = clamp(baseX, b.minX, b.maxX);
+      const followY = clamp(baseY, b.minY, b.maxY);
+      // Pendant l'exploration, la vue reste ancrée au terrain, même si le héros continue à courir.
+      if ((s.dragging || s.held) && s.anchorX !== null) {
+        s.offX = s.anchorX - followX;
+        s.offY = s.anchorY - followY;
+      }
+
       // Retour automatique du décalage d'exploration (sauf glissé en cours ou mode libre).
       if (!s.dragging && !s.held && (s.offX !== 0 || s.offY !== 0)) {
         s.idleMs += dt;
@@ -85,7 +96,7 @@ export function createCamera(opts = {}) {
       // Décalage vers la visée (compétence en cours de visée).
       let tx = 0;
       let ty = 0;
-      if (aim && !hero.dead) {
+      if (aim && !hero.dead && !s.dragging && !s.held && !s.snap && Number.isFinite(aim.x) && Number.isFinite(aim.y)) {
         let dx = (aim.x - hero.x) * cfg.leadFactor;
         let dy = (aim.y - hero.y) * cfg.leadFactor;
         const len = Math.hypot(dx, dy);
@@ -102,16 +113,17 @@ export function createCamera(opts = {}) {
 
       // Le décalage d'exploration est compté depuis la position de suivi déjà bornée (un héros collé au bord de la carte
       // ne crée donc aucun décalage), et ne peut pas dépasser les bords (sinon il s'accumulerait sans effet visible).
-      const followX = clamp(baseX, b.minX, b.maxX);
-      const followY = clamp(baseY, b.minY, b.maxY);
       const wantX = clamp(followX + s.offX, b.minX, b.maxX);
       const wantY = clamp(followY + s.offY, b.minY, b.maxY);
       s.offX = wantX - followX;
       s.offY = wantY - followY;
+      s.anchorX = wantX;
+      s.anchorY = wantY;
       const targetX = clamp(wantX + s.leadX, b.minX, b.maxX);
       const targetY = clamp(wantY + s.leadY, b.minY, b.maxY);
 
-      if (!s.ready) {
+      if (!s.ready || s.snap) {
+        s.snap = false;
         s.x = targetX;
         s.y = targetY;
         s.ready = true;
@@ -137,6 +149,13 @@ export function createCamera(opts = {}) {
 
     /** Glissé : déplace le cadre de (dx, dy) unités monde (positif = la vue se déplace vers la droite / le bas). */
     pan(dx, dy) {
+      if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+      if (!s.dragging && !s.held) {
+        s.anchorX = s.x - s.leadX;
+        s.anchorY = s.y - s.leadY;
+      }
+      s.anchorX = (s.anchorX ?? s.x) + dx;
+      s.anchorY = (s.anchorY ?? s.y) + dy;
       s.offX += dx;
       s.offY += dy;
       s.dragging = true;
@@ -147,9 +166,11 @@ export function createCamera(opts = {}) {
       s.dragging = false;
       s.idleMs = 0;
     },
-    /** Recentrage immédiat : décalage effacé, mode libre quitté, rattrapage rapide du héros. */
+    /** Recentrage immédiat : décalage effacé, mode libre quitté, héros retrouvé dès la prochaine image, même à temps nul. */
     recenter() {
-      s.offX = s.offY = 0;
+      s.offX = s.offY = s.leadX = s.leadY = 0;
+      s.anchorX = s.anchorY = null;
+      s.snap = true;
       s.dragging = false;
       s.held = false;
       s.idleMs = 0;
@@ -158,6 +179,11 @@ export function createCamera(opts = {}) {
     /** Mode libre : le décalage n'est plus rendu tout seul. Quitter le mode libre lance aussitôt le retour. */
     toggleHold() {
       s.held = !s.held;
+      if (s.held) {
+        s.anchorX ??= s.x;
+        s.anchorY ??= s.y;
+        s.leadX = s.leadY = 0;
+      }
       s.idleMs = s.held ? 0 : cfg.returnDelayMs;
       return s.held;
     },
